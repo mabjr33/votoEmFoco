@@ -417,6 +417,24 @@ export class Collector extends EventEmitter {
       }));
   }
 
+  /**
+   * Só o que muda durante a apuração (sem o 1º turno, que o navegador já tem) e o fim do histórico.
+   * Com milhares de pessoas recebendo uma atualização a cada ciclo, isso corta a maior parte do tráfego.
+   * O 1º turno só muda numa recarga completa, que sempre vem com o aviso '*'.
+   */
+  racePayloadVivo(id, pontos = 40) {
+    const p = this.racePayload(id);
+    if (!p) return null;
+    const { history, ...live } = p.live;
+    return { id: p.id, version: p.version, finalists: p.finalists, live, historicoFim: history.slice(-pontos) };
+  }
+
+  /** Exterior sem os números do 1º turno de cada cidade (que não mudam). */
+  exteriorPayloadVivo() {
+    const e = this.exteriorPayload();
+    return { version: e.version, aoVivo: e.aoVivo, atualizadoEm: e.atualizadoEm, total: { t2: e.total.t2 }, cidades: e.cidades.map((c) => ({ cd: c.cd, t2: c.t2 })) };
+  }
+
   racePayload(id) {
     const r = this.races.get(id);
     if (!r) return null;

@@ -76,6 +76,14 @@ test('integração: coletor descobre o 2º turno no ele-c.json e acompanha a apu
     const ult = live.history.at(-1);
     const votos = (n) => live.summary.cands.find((c) => c.n === n).vap;
     assert.deepEqual([ult.vA, ult.vB], [votos('22'), votos('13')]);
+    // Atualização enxuta: sem o 1º turno, só o fim do histórico; exterior sem o 1º turno das cidades
+    const vivo = col.racePayloadVivo('pres');
+    assert.ok(!('baseline' in vivo) && !('history' in vivo.live));
+    assert.deepEqual(vivo.live.summary, live.summary);
+    assert.deepEqual(vivo.historicoFim, live.history.slice(-40));
+    assert.ok(JSON.stringify(vivo).length < JSON.stringify(col.racePayload('pres')).length / 2);
+    const exv = col.exteriorPayloadVivo();
+    assert.ok(exv.cidades.every((c) => !('t1' in c) && c.t2));
 
     // Exterior: localidades do arquivo de municípios, 1º turno e 2º turno por cidade
     const ex = col.exteriorPayload();

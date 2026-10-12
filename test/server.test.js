@@ -123,3 +123,38 @@ test('prévia ao compartilhar: PUBLIC_URL vira URL absoluta; valor estranho é i
     } finally { srv.close(); }
   }
 });
+
+test('ao vivo: avisos de um mesmo ciclo saem juntos, com a lista enxuta; recarga sai na hora e completa', async () => {
+  const col = coletorFalso();
+  col.raceList = () => [{ id: 'pres', label: 'Presidente', cargo: 1, scope: 'br', temBase: true, aoVivo: true, pst: 12.5, version: 7 }];
+  const srv = createApp({}, col);
+  const base = await ouvir(srv);
+  const ctrl = new AbortController();
+  try {
+    const r = await fetch(`${base}/api/stream`, { signal: ctrl.signal });
+    const leitor = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    const proximo = async () => {
+      for (;;) {
+        const i = buf.indexOf('\n\n');
+        if (i >= 0) { const b = buf.slice(0, i); buf = buf.slice(i + 2); if (b.startsWith('event: update')) return JSON.parse(b.split('\ndata: ')[1]); continue; }
+        buf += dec.decode((await leitor.read()).value);
+      }
+    };
+    col.emit('update', { raceId: 'pres' });
+    col.emit('update', { raceId: 'gov-es' });
+    col.emit('update', { raceId: 'exterior' });
+    const junto = await proximo();
+    assert.deepEqual(junto.ids, ['pres', 'gov-es', 'exterior']);
+    assert.deepEqual(junto.races, [{ id: 'pres', pst: 12.5, version: 7, aoVivo: true }]);
+    col.emit('update', { raceId: '*' });
+    const tudo = await proximo();
+    assert.deepEqual(tudo.ids, ['*']);
+    assert.equal(tudo.races[0].label, 'Presidente');
+  } finally {
+    ctrl.abort();
+    srv.closeAllConnections?.();
+    srv.close();
+  }
+});

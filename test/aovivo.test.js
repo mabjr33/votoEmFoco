@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pontoDePartida, cenarioFinal, agruparPorRegiao, situacaoVirada } from '../src/shared/aovivo.js';
+import { pontoDePartida, cenarioFinal, agruparPorRegiao, situacaoVirada, mesclarHistorico } from '../src/shared/aovivo.js';
 
 // Três UFs de regiões diferentes; parte já apurada
 const pp = {
@@ -83,4 +83,17 @@ test('ainda dá para virar: fração necessária, estimativa e teto oficial', ()
   assert.equal(fim.recebe, 0.6);
   assert.equal(fim.impossivel, true);
   assert.ok(fim.precisa > 1);
+});
+
+test('histórico: junta o fim que chegou, sem repetir; avisa quando faltaram pontos', () => {
+  const p = (i) => ({ t: `25/10/2026 17:${String(i).padStart(2, '0')}:00`, pst: i });
+  const tenho = [p(1), p(2), p(3)];
+  assert.deepEqual(mesclarHistorico(tenho, [p(2), p(3), p(4), p(5)]).map((x) => x.pst), [1, 2, 3, 4, 5]);
+  assert.deepEqual(mesclarHistorico(tenho, []), tenho);
+  assert.deepEqual(mesclarHistorico([], [p(1), p(2)]).map((x) => x.pst), [1, 2]);
+  // Janela cheia começando depois do que tenho: faltou o meio
+  const janela = Array.from({ length: 40 }, (_, i) => p(10 + i));
+  assert.equal(mesclarHistorico(tenho, janela), null);
+  // Limite de pontos guardados
+  assert.equal(mesclarHistorico(tenho, [p(4), p(5)], { max: 4 }).length, 4);
 });

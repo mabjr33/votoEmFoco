@@ -93,9 +93,28 @@ data: ${JSON.stringify(ev)}
 
   // Pesquisa que entrou sozinha (cadastro do TSE + duas reportagens): todos recalculam a previsão
   pesquisas.on?.('mudou', () => avisarTodos({ raceId: 'pesquisas' }));
-  collector.on('update', (ev) => {
-    const msg = `event: update\ndata: ${JSON.stringify({ ...ev, races: collector.raceList() })}\n\n`;
+  // Um ciclo do coletor atualiza várias disputas em sequência: junta os avisos de ~300 ms num só
+  // (menos escritas em milhares de conexões) e manda só o que muda de cada disputa.
+  // Recarga completa ('*') sai na hora, com a lista inteira.
+  const fila = new Set();
+  let timerFila = null;
+  const despachar = () => {
+    timerFila = null;
+    const ids = [...fila]; fila.clear();
+    if (!ids.length) return;
+    const races = collector.raceList().map(({ id, pst, version, aoVivo }) => ({ id, pst, version, aoVivo }));
+    const msg = `event: update\ndata: ${JSON.stringify({ ids, races })}\n\n`;
     for (const res of sseClients) res.write(msg);
+  };
+  collector.on('update', (ev) => {
+    if (ev.raceId === '*') {
+      clearTimeout(timerFila); timerFila = null; fila.clear();
+      const msg = `event: update\ndata: ${JSON.stringify({ raceId: '*', ids: ['*'], races: collector.raceList() })}\n\n`;
+      for (const res of sseClients) res.write(msg);
+      return;
+    }
+    fila.add(ev.raceId);
+    timerFila ||= setTimeout(despachar, 300);
   });
   noticias?.on('update', (ev) => {
     const msg = `event: update\ndata: ${JSON.stringify({ raceId: 'noticias', novos: ev.novos })}\n\n`;
@@ -156,6 +175,7 @@ data: ${JSON.stringify(ev)}
       if (p === '/api/races') return sendJson(req, res, collector.raceList(), { maxAge: 2 });
       if (p === '/api/endorsers') return sendJson(req, res, collector.endorsers, { maxAge: 60 });
       if (p === '/api/exterior') return sendJson(req, res, collector.exteriorPayload(), { maxAge: 5 });
+      if (p === '/api/exterior/vivo') return sendJson(req, res, collector.exteriorPayloadVivo(), { maxAge: 2 });
       if (p === '/api/eventos') return sendJson(req, res, collector.eventos.slice(0, 60), { maxAge: 3 });
       if (p === '/api/noticias') {
         if (!noticias) return sendJson(req, res, { atualizadoEm: null, fontes: [], itens: [] }, { maxAge: 30 });
@@ -171,14 +191,16 @@ data: ${JSON.stringify(ev)}
         res.writeHead(200, { 'Content-Type': r.type, 'Cache-Control': 'public, max-age=86400', 'Content-Length': r.body.length });
         return res.end(req.method === 'HEAD' ? undefined : r.body);
       }
-      const m = p.match(/^\/api\/race\/([a-z0-9-]+)$/);
+      // /api/race/:id (completo) e /api/race/:id/vivo (só o que muda na apuração)
+      const m = p.match(/^\/api\/race\/([a-z0-9-]+)(\/vivo)?$/);
       if (m) {
         const race = collector.races.get(m[1]);
         if (!race) { res.writeHead(404); return res.end('{}'); }
-        let c = payloadCache.get(race.id);
+        const chave = m[2] ? `${race.id}/vivo` : race.id;
+        let c = payloadCache.get(chave);
         if (!c || c.version !== race.version || c.ready !== collector.ready) {
-          c = { version: race.version, ready: collector.ready, json: JSON.stringify(collector.racePayload(race.id)) };
-          payloadCache.set(race.id, c);
+          c = { version: race.version, ready: collector.ready, json: JSON.stringify(m[2] ? collector.racePayloadVivo(race.id) : collector.racePayload(race.id)) };
+          payloadCache.set(chave, c);
         }
         return sendJson(req, res, c.json, { maxAge: 2 });
       }

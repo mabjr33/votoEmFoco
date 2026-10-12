@@ -1,6 +1,6 @@
 import { defaultParams, simulate, liveProjection, normFlow } from '/shared/engine.js';
 import { suggestedFlow } from '/shared/presets.js';
-import { REGIOES, pontoDePartida, cenarioFinal, situacaoVirada } from '/shared/aovivo.js';
+import { REGIOES, pontoDePartida, cenarioFinal, situacaoVirada, mesclarHistorico } from '/shared/aovivo.js';
 import { $, $$, fmtInt, fmtPct, fmtPp, esc, clamp, curto, deQtd, parseVotos, redondo, titulo, normalizar, avatar } from './util.js';
 import { corPartido, textoSobre } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
@@ -22,6 +22,7 @@ const S = {
   status: null, races: [], pres: null, gov: {}, endorsers: {}, exterior: null, eventos: [],
   rota: { aba: 'presidente', uf: null, sim: 'pres' }, turno: null, turnoEscolhido: false, modo: null,
   base: {}, opts: {}, simDesenhado: null, dicas: {}, dicasPrev: {}, noticias: null, paisAberto: null, tipoMapa: null,
+  atrasadas: new Set(), // disputas que mudaram fora da tela: atualizadas quando a pessoa abrir
 };
 const ler = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -30,6 +31,36 @@ async function getJSON(url) { const r = await fetch(url, { cache: 'no-cache' });
 
 // ---------- dados ----------
 async function carregarRace(id) { const p = await getJSON(`/api/race/${id}`); if (id === 'pres') S.pres = p; else S.gov[p.scope] = p; }
+
+/**
+ * Atualização de uma disputa já carregada: só a parte ao vivo e o fim do histórico. O 1º turno
+ * não muda (quando muda, o servidor manda recarregar tudo). Corta a maior parte do tráfego da noite.
+ */
+async function carregarVivo(id) {
+  const atual = id === 'pres' ? S.pres : Object.values(S.gov).find((g) => g.id === id);
+  if (!atual) return carregarRace(id);
+  const v = await getJSON(`/api/race/${id}/vivo`);
+  const hist = mesclarHistorico(atual.live?.history || [], v.historicoFim || []);
+  if (!hist) return carregarRace(id);
+  Object.assign(atual, { version: v.version, finalists: v.finalists, live: { ...v.live, history: hist } });
+}
+/** Exterior: só o 2º turno de cada cidade; o 1º turno já está aqui. */
+async function carregarExteriorVivo() {
+  if (!S.exterior?.cidades) { S.exterior = await getJSON('/api/exterior'); return; }
+  const v = await getJSON('/api/exterior/vivo');
+  const porCd = new Map(S.exterior.cidades.map((c) => [c.cd, c]));
+  if (v.cidades.some((c) => !porCd.has(c.cd))) { S.exterior = await getJSON('/api/exterior'); return; }
+  for (const c of v.cidades) porCd.get(c.cd).t2 = c.t2;
+  Object.assign(S.exterior, { version: v.version, aoVivo: v.aoVivo, atualizadoEm: v.atualizadoEm, total: { ...S.exterior.total, t2: v.total.t2 } });
+}
+/** Lista de disputas: completa nas recargas; nos avisos comuns, só % apurado e versão de cada uma. */
+function mesclarRaces(lista, pend) {
+  if (lista.every((x) => 'label' in x)) { S.races = lista; return; }
+  for (const x of lista) {
+    const r = S.races.find((y) => y.id === x.id);
+    if (r) Object.assign(r, x); else pend.add('*');
+  }
+}
 /** Pesquisas aprovadas no painel: entram nos modelos da aba Previsões. */
 async function carregarPesquisas() {
   const d = await getJSON('/api/pesquisas').catch(() => null);
@@ -41,6 +72,7 @@ async function carregarTudo() {
     getJSON('/api/exterior').catch(() => null), getJSON('/api/eventos').catch(() => []),
   ]);
   Object.assign(S, { status, races, endorsers, exterior, eventos });
+  S.atrasadas.clear();
   S.noticias = await getJSON('/api/noticias').catch(() => S.noticias);
   await carregarPesquisas();
   await Promise.all(races.map((r) => carregarRace(r.id).catch(() => {})));
@@ -161,8 +193,27 @@ function renderAlertaTse() {
   return true;
 }
 
+/**
+ * A disputa aparece na tela atual? Presidente sempre; governador só na aba Governadores, no telão,
+ * no simulador dele ou no painel do estado. As outras ficam marcadas e são atualizadas ao abrir.
+ */
+function naTela(id) {
+  if (id === 'pres') return true;
+  const { aba, uf, sim } = S.rota;
+  if (id === 'exterior') return aba === 'exterior';
+  return aba === 'governadores' || aba === 'telao' || (aba === 'simulador' && sim === id) || (!!uf && id === `gov-${uf}`);
+}
+const atualizarParte = (id) => (id === 'exterior' ? carregarExteriorVivo() : carregarVivo(id));
+function atualizarAtrasadas() {
+  const ids = [...S.atrasadas].filter(naTela);
+  if (!ids.length) return;
+  for (const i of ids) S.atrasadas.delete(i);
+  Promise.all(ids.map((i) => atualizarParte(i).catch(() => {}))).then(() => render());
+}
+
 function render() {
   S.rota = lerRota();
+  atualizarAtrasadas();
   const entrando = S.abaAnterior !== S.rota.aba;
   S.abaAnterior = S.rota.aba;
   renderTopo();
@@ -1018,14 +1069,33 @@ function buscar() {
   $('#busca-res').innerHTML = res.map((i) => `<li><a href="#${i.h}">${esc(i.t)}<span>${esc(i.s)}</span></a></li>`).join('') || '<li class="nota" style="padding:12px">Nada encontrado.</li>';
 }
 
+/**
+ * Sem conexão ao vivo (servidor lotado): consulta a lista de disputas e busca só as que mudaram,
+ * pelo mesmo caminho enxuto da conexão ao vivo. Disputa nova ou sumida: recarrega tudo.
+ */
+async function consultarMudancas() {
+  const races = await getJSON('/api/races');
+  const tenho = (id) => (id === 'pres' ? S.pres : Object.values(S.gov).find((g) => g.id === id));
+  if (races.length !== S.races.length || races.some((r) => !tenho(r.id))) return carregarTudo();
+  S.races = races;
+  const mudaram = races.filter((r) => tenho(r.id).version !== r.version).map((r) => r.id);
+  for (const i of mudaram) if (!naTela(i)) S.atrasadas.add(i);
+  if (naTela('exterior')) S.atrasadas.add('exterior');
+  await Promise.all([
+    ...mudaram.filter(naTela).map((i) => carregarVivo(i).catch(() => {})),
+    getJSON('/api/eventos').then((x) => { S.eventos = x; }, () => {}),
+    getJSON('/api/status').then((x) => { S.status = x; }, () => {}),
+  ]);
+}
+
 function conectar() {
   const es = new EventSource('/api/stream');
   let t = null;
   const pend = new Set();
   es.addEventListener('update', (ev) => {
     const d = JSON.parse(ev.data);
-    if (d.races) S.races = d.races;
-    if (d.raceId) pend.add(d.raceId);
+    if (d.races) mesclarRaces(d.races, pend);
+    for (const i of d.ids || (d.raceId ? [d.raceId] : [])) pend.add(i);
     clearTimeout(t);
     t = setTimeout(async () => {
       const ids = [...pend]; pend.clear();
@@ -1034,19 +1104,29 @@ function conectar() {
         else {
           if (ids.includes('noticias')) S.noticias = await getJSON('/api/noticias').catch(() => S.noticias);
           if (ids.includes('pesquisas')) await carregarPesquisas();
-          await Promise.all(ids.filter((i) => !['exterior', 'noticias', 'pesquisas'].includes(i)).map((i) => carregarRace(i).catch(() => {})));
-          [S.exterior, S.eventos, S.status] = await Promise.all([getJSON('/api/exterior').catch(() => S.exterior), getJSON('/api/eventos').catch(() => S.eventos), getJSON('/api/status').catch(() => S.status)]);
+          const disputas = ids.filter((i) => !['exterior', 'noticias', 'pesquisas'].includes(i));
+          // Só o que está na tela é buscado agora; o resto fica marcado e vem quando a pessoa abrir.
+          // Eventos e status só quando a apuração andou. Tudo em paralelo.
+          const mudaram = [...disputas, ...(ids.includes('exterior') ? ['exterior'] : [])];
+          for (const i of mudaram) if (!naTela(i)) S.atrasadas.add(i);
+          await Promise.all([
+            ...mudaram.filter(naTela).map((i) => atualizarParte(i).catch(() => {})),
+            disputas.length || ids.includes('exterior') ? getJSON('/api/eventos').then((x) => { S.eventos = x; }, () => {}) : null,
+            disputas.length || ids.includes('exterior') ? getJSON('/api/status').then((x) => { S.status = x; }, () => {}) : null,
+          ]);
         }
         if (S.turno === 1 && temVotos(S.pres) && !S.turnoEscolhido) S.turno = 2;
         render();
       } catch (err) { console.error(err); }
-    }, 500);
+      // Espera curta e um pouco diferente em cada navegador: os pedidos de milhares de pessoas
+      // não chegam todos no mesmo instante depois de cada aviso
+    }, 500 + Math.random() * 700);
   });
   es.onerror = () => {
     $('#fonte').textContent = 'Conexão com o servidor perdida. Tentando de novo…';
     // Servidor recusou a conexão ao vivo (ex.: lotado): consulta de tempos em tempos e tenta voltar ao vivo depois
     if (es.readyState === EventSource.CLOSED) {
-      const plano = setInterval(async () => { await carregarTudo().catch(() => {}); render(); }, 30_000);
+      const plano = setInterval(async () => { await consultarMudancas().catch(() => {}); render(); }, 30_000);
       setTimeout(() => { clearInterval(plano); conectar(); }, 5 * 60_000);
     }
   };

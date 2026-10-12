@@ -62,6 +62,20 @@ function deslocar(grupos, alvo) {
 }
 
 /**
+ * Junta o fim do histórico da apuração (o servidor manda os últimos `janela` pontos a cada
+ * atualização) ao que o navegador já tem. Devolve null se faltaram pontos no meio, por exemplo
+ * com a aba dormindo: aí é preciso buscar o histórico inteiro.
+ */
+export function mesclarHistorico(hist, fim, { janela = 40, max = 500 } = {}) {
+  if (!fim.length) return hist;
+  const chave = (p) => `${p.t}|${p.pst}`;
+  const tem = new Set(hist.map(chave));
+  const ult = hist.at(-1);
+  if (ult && fim.length >= janela && !tem.has(chave(fim[0])) && fim[0].pst > ult.pst) return null;
+  return [...hist, ...fim.filter((p) => !tem.has(chave(p)) && (!ult || p.pst >= ult.pst))].slice(-max);
+}
+
+/**
  * "Ainda dá para virar?" durante a apuração.
  * a, b: votos válidos já apurados de cada finalista.
  * faltam: votos válidos que ainda faltam, pela estimativa do simulador.
