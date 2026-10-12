@@ -8,6 +8,8 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&a
 export const clamp = (x, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
 
 /** 2.2 milhões, 135 mil, 912 */
+/** " de" depois de milhão/milhões: "1,1 milhão de votos", mas "53 mil votos" e "753 votos". Use logo após curto(n). */
+export const deQtd = (n) => (Math.abs(n || 0) >= 1e6 ? ' de' : '');
 export function curto(n, casas = 1) {
   const a = Math.abs(n || 0);
   if (a >= 1e6) return `${fmtPct(n / 1e6, casas).replace(/,0$/, '')} ${a >= 2e6 ? 'milhões' : 'milhão'}`;

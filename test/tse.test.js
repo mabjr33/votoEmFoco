@@ -72,6 +72,10 @@ test('integração: coletor descobre o 2º turno no ele-c.json e acompanha a apu
     assert.equal(live.summary.secoes.pst, 100);
     assert.ok(live.summary.totalFinal);
     assert.equal(Object.keys(live.units).length, 28);
+    // Histórico da apuração guarda os votos de cada finalista (gráfico de diferença em votos)
+    const ult = live.history.at(-1);
+    const votos = (n) => live.summary.cands.find((c) => c.n === n).vap;
+    assert.deepEqual([ult.vA, ult.vB], [votos('22'), votos('13')]);
 
     // Exterior: localidades do arquivo de municípios, 1º turno e 2º turno por cidade
     const ex = col.exteriorPayload();

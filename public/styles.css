@@ -108,6 +108,22 @@ main { padding-top: var(--e4); padding-bottom: var(--e5); }
 .barra.pequena .meio { top: -4px; bottom: -4px; width: 1px; margin-left: 0; background: var(--tinta-3); }
 
 .placar-pe { display: flex; justify-content: space-between; align-items: center; gap: var(--e2); flex-wrap: wrap; color: var(--tinta-2); font-size: 15px; }
+
+/* ainda dá para virar? */
+.virada-card { margin-top: var(--e4); padding: var(--e3) var(--e4); border: 1px solid var(--linha); border-radius: 14px; background: var(--sup); }
+.virada-card h2, .virada-card h3 { margin: 0 0 6px; font-size: 18px; }
+.virada-card .resp { font-weight: 700; }
+.virada-card p { margin: 0 0 10px; line-height: 1.5; }
+.virada-card .nota { margin: 12px 0 0; }
+.virada-card.compacto { margin-top: 0; padding: var(--e3); border-radius: 12px; }
+.virada-card.compacto h3 { font-size: 15px; }
+.medidor-virada { position: relative; height: 14px; border-radius: 7px; background: var(--vazio); margin: 30px 0 6px; }
+.medidor-virada .est { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 7px; opacity: .85; }
+.medidor-virada .precisa { position: absolute; top: -8px; bottom: -8px; width: 2px; margin-left: -1px; background: var(--tinta); }
+.medidor-virada .precisa b { font-style: normal; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-weight: 600; }
+.medidor-virada .precisa.dir b { left: auto; right: 0; transform: none; }
+.medidor-virada .precisa.esq b { left: 0; transform: none; }
+.medidor-pe { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--tinta-3); }
 .placar-pe strong { color: var(--tinta); font-weight: 600; }
 .alternar { display: inline-flex; gap: 2px; background: var(--linha); border-radius: 999px; padding: 3px; }
 .alternar button { border: 0; background: none; padding: 5px 14px; border-radius: 999px; cursor: pointer; color: var(--tinta-2); font-size: 14px; }
@@ -212,6 +228,13 @@ select.entrada { appearance: none; background: var(--sup) url("data:image/svg+xm
 .grafico { width: 100%; height: auto; display: block; overflow: visible; }
 .grafico text { fill: var(--tinta-3); font: 12px var(--fonte); }
 .grafico .grade { stroke: var(--linha); }
+.grafico .grade.zero { stroke: var(--tinta-3); stroke-dasharray: 4 3; }
+.grafico .lado { font-weight: 600; }
+.grafico .alvo { fill: transparent; cursor: default; }
+.grafico .alvo:hover { fill: color-mix(in oklab, var(--tinta) 18%, transparent); }
+.evol-cab { display: flex; justify-content: space-between; align-items: center; gap: var(--e2); flex-wrap: wrap; }
+.evol-cab h2 { margin: 0; }
+.evol-pe { display: flex; align-items: center; gap: var(--e2); flex-wrap: wrap; margin-top: var(--e2); font-size: 13px; color: var(--tinta-2); }
 
 .paises { list-style: none; padding: 0; margin: 0; }
 .paises button { width: 100%; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; background: none; border: 0; border-top: 1px solid var(--linha); padding: 12px 0; text-align: left; cursor: pointer; }
@@ -540,3 +563,43 @@ details.secao[open] > summary::after { content: "−"; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 .eixo .trilho-p span:first-child { transform: none; }
 .eixo .trilho-p span:last-child { transform: translateX(-100%); }
+
+/* ---------- modo telão (TV ou projetor) ---------- */
+.disputas a.telao-link { color: var(--tinta-3); }
+body.modo-telao .topo, body.modo-telao .rodape { display: none; }
+body.modo-telao { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+body.modo-telao main { padding: 0; max-width: none; width: 100%; flex: 1; min-height: 0; display: flex; }
+body.modo-telao.ocioso { cursor: none; }
+body.modo-telao.ocioso .telao-acoes { opacity: 0; }
+.telao { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: clamp(12px, min(3vw, 4vh), 48px) clamp(16px, 4vw, 64px); box-sizing: border-box; gap: clamp(8px, 2vh, 28px); }
+.telao-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.telao-titulo { font: 600 clamp(26px, min(4vw, 6vh), 56px)/1 var(--num); }
+.telao-titulo small, .telao-relogio small { font: 500 clamp(14px, 1.4vw, 22px) var(--fonte); color: var(--tinta-3); margin-left: 8px; }
+.telao-relogio { font: 500 clamp(24px, 3vw, 44px)/1 var(--num); color: var(--tinta-2); }
+.telao-selo { align-self: flex-start; margin: 0; padding: 6px 14px; border-radius: 999px; background: var(--aviso-bg); color: var(--aviso-tinta); font-weight: 600; font-size: clamp(14px, 1.4vw, 20px); }
+.telao-grade { flex: 1; display: grid; gap: clamp(16px, 3vw, 48px); align-items: center; }
+.telao-grade.com-mapa { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.telao-duelo { display: flex; justify-content: space-between; gap: 24px; margin-bottom: clamp(12px, 2vh, 24px); }
+.telao-lado { display: flex; flex-direction: column; gap: clamp(4px, 1vh, 8px); min-width: 0; }
+.telao-lado .avatar { --tam: clamp(56px, 11vh, 120px) !important; }
+.telao-lado.b { align-items: flex-end; text-align: right; }
+.telao-nome { font: 600 clamp(18px, min(2.4vw, 3.6vh), 36px)/1.1 var(--fonte); }
+.telao-nome small { display: block; font-weight: 500; font-size: 0.6em; color: var(--tinta-3); margin-top: 4px; }
+.telao-pct { font: 500 clamp(56px, min(11vw, 17vh), 190px)/0.9 var(--num); letter-spacing: -0.02em; }
+.telao-pct small { font-size: 0.4em; margin-left: 2px; }
+.telao-votos { font-size: clamp(14px, 1.4vw, 22px); color: var(--tinta-2); }
+.telao .barra { height: clamp(14px, 2vh, 24px); }
+.telao-sub { font-size: clamp(15px, min(1.8vw, 2.7vh), 28px); color: var(--tinta-2); margin: clamp(10px, 1.5vh, 20px) 0 0; }
+.telao-virada { font-size: clamp(15px, min(1.8vw, 2.7vh), 28px); font-weight: 600; margin: 8px 0 0; }
+.telao-mapa svg { max-height: 58vh; }
+.telao-mapa .zoom { display: none; }
+.telao-pe { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; font-size: clamp(13px, 1.2vw, 18px); color: var(--tinta-3); }
+.telao-pontos { display: inline-flex; gap: 8px; }
+.telao-pontos i { width: 10px; height: 10px; border-radius: 50%; background: var(--linha); }
+.telao-pontos i.atual { background: var(--tinta); }
+.telao-acoes { display: inline-flex; gap: 8px; transition: opacity .3s; }
+@media (max-width: 760px) {
+  body.modo-telao { height: auto; overflow: visible; }
+  .telao-grade.com-mapa { grid-template-columns: 1fr; }
+  .telao-lado .avatar { --tam: 64px !important; }
+}

@@ -3,7 +3,7 @@
 import { simulate, simulateWithUncertainty, calibrateSwing } from '/shared/engine.js';
 import { FONTES, ELEICOES, PESQUISAS_2026_2T, TRANSFERENCIA_2026, ATUALIZADO } from '/shared/historico.js';
 import { previsoes, erroPorAno, normCdf, serieDiaria, maisRecentePorInstituto } from '/shared/previsao.js';
-import { esc, fmtPct, fmtInt, curto, normalizar, avatar } from './util.js';
+import { esc, fmtPct, fmtInt, curto, deQtd, normalizar, avatar } from './util.js';
 import { corPartido } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
 
@@ -54,7 +54,7 @@ function blocoTopo(ctx) {
   if (s?.eleitores?.te && s.votos?.vv && s.eleitores.c) {
     const comp = s.eleitores.te * (1 - P.abstencao.centro / 100);
     const validos = comp * (s.votos.vv / s.eleitores.c);
-    votos = `<p class="nota">Em votos: com ${curto(s.eleitores.te)} de eleitores, abstenção de ${pct(P.abstencao.centro)} e brancos e nulos na proporção do 1º turno, seriam cerca de ${curto(validos)} de votos válidos. A estimativa central daria uma diferença de ${curto(Math.abs(2 * f - 100) / 100 * validos)} de votos.</p>`;
+    votos = `<p class="nota">Em votos: com ${curto(s.eleitores.te)}${deQtd(s.eleitores.te)} eleitores, abstenção de ${pct(P.abstencao.centro)} e brancos e nulos na proporção do 1º turno, seriam cerca de ${curto(validos)}${deQtd(validos)} votos válidos. A estimativa central daria uma diferença de ${curto(Math.abs(2 * f - 100) / 100 * validos)}${deQtd(Math.abs(2 * f - 100) / 100 * validos)} votos.</p>`;
   }
   return `<div class="prev-topo">
     <div class="duelo">${cabecaCandidato(NOME_F, CA, fotos.f, 'a')}<div class="pct">${fmtPct(f, 1)}<small>%</small></div></div>

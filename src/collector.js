@@ -375,7 +375,7 @@ export class Collector extends EventEmitter {
           const last = race.live.history.at(-1);
           this.eventosAoVivo(race, sm, a, b, last);
           if (!last || last.pst !== sm.secoes.pst) {
-            race.live.history.push({ t: sm.totalizadoEm || race.live.atualizadoEm, pst: sm.secoes.pst, st: sm.secoes.st, pA: a?.pvap ?? null, pB: b?.pvap ?? null });
+            race.live.history.push({ t: sm.totalizadoEm || race.live.atualizadoEm, pst: sm.secoes.pst, st: sm.secoes.st, pA: a?.pvap ?? null, pB: b?.pvap ?? null, vA: a?.vap ?? null, vB: b?.vap ?? null });
             if (race.live.history.length > 500) race.live.history.shift();
           }
         }

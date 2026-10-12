@@ -1,7 +1,7 @@
 import { defaultParams, simulate, liveProjection, normFlow } from '/shared/engine.js';
 import { suggestedFlow } from '/shared/presets.js';
-import { REGIOES, pontoDePartida, cenarioFinal } from '/shared/aovivo.js';
-import { $, $$, fmtInt, fmtPct, fmtPp, esc, clamp, curto, parseVotos, redondo, titulo, normalizar, avatar } from './util.js';
+import { REGIOES, pontoDePartida, cenarioFinal, situacaoVirada } from '/shared/aovivo.js';
+import { $, $$, fmtInt, fmtPct, fmtPp, esc, clamp, curto, deQtd, parseVotos, redondo, titulo, normalizar, avatar } from './util.js';
 import { corPartido, textoSobre } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
 import { NOME_SITE } from './marca.js';
@@ -69,12 +69,13 @@ const base = (r) => (S.base[r.id] ||= ler(`base:${r.id}`, null) || premissasInic
 const opts = (r) => (S.opts[r.id] ||= ler(`opts:${r.id}`, null) || optsPadrao());
 const salvarSim = (r) => { gravar(`base:${r.id}`, S.base[r.id]); gravar(`opts:${r.id}`, S.opts[r.id]); };
 
-function calcular(r) {
+/** comApuracao: usa os votos já apurados mesmo se a pessoa pediu ao simulador para ignorá-los. */
+function calcular(r, { comApuracao = false } = {}) {
   if (!r || fins(r).length < 2 || !Object.keys(r.baseline.units).length) return null;
   const f = fins(r).map((x) => x.n);
   const p = base(r);
   const sim = simulate(r.baseline.units, f, p);
-  const vivo = usaApuracao(r);
+  const vivo = comApuracao ? temVotos(r) && !encerrada(r) : usaApuracao(r);
   const proj = vivo ? liveProjection(liveUnits(r), sim, f, { incerteza: p.incerteza }) : null;
   const pp = pontoDePartida({ live: vivo ? liveUnits(r) : {}, sim, proj }, f);
   const inc = { ...p.incerteza, seed: 11 };
@@ -87,7 +88,7 @@ function lerRota() {
   const [aba, ...resto] = h.split('-');
   const suf = resto.join('-');
   if (aba === 'simulador') return { aba, uf: null, sim: suf || S.rota.sim || 'pres' };
-  if (aba === 'exterior' || aba === 'previsoes' || aba === 'noticias') return { aba, uf: null, sim: S.rota.sim };
+  if (aba === 'exterior' || aba === 'previsoes' || aba === 'noticias' || aba === 'telao') return { aba, uf: null, sim: S.rota.sim };
   if (!['presidente', 'governadores', 'senado'].includes(aba)) return { aba: 'presidente', uf: null, sim: S.rota.sim };
   return { aba, uf: /^[a-z]{2}$/.test(suf) ? suf : null, sim: S.rota.sim };
 }
@@ -123,7 +124,9 @@ const hora = (s) => { const m = String(s || '').match(/(\d{2}):(\d{2})/); return
 function renderTopo() {
   document.title = NOME_SITE;
   $('#nome-site').textContent = NOME_SITE;
-  const vista = { simulador: 'simulador', previsoes: 'previsoes', noticias: 'noticias' }[S.rota.aba] || 'resultado';
+  const vista = { simulador: 'simulador', previsoes: 'previsoes', noticias: 'noticias', telao: 'telao' }[S.rota.aba] || 'resultado';
+  document.body.classList.toggle('modo-telao', vista === 'telao');
+  $('#vista-telao').hidden = vista !== 'telao';
   for (const a of $$('.vistas a')) a.setAttribute('aria-current', a.dataset.vista === vista ? 'page' : 'false');
   for (const a of $$('.disputas a')) a.setAttribute('aria-current', a.dataset.aba === S.rota.aba ? 'page' : 'false');
   $('#vista-resultado').hidden = vista !== 'resultado';
@@ -163,6 +166,7 @@ function render() {
   const entrando = S.abaAnterior !== S.rota.aba;
   S.abaAnterior = S.rota.aba;
   renderTopo();
+  if (S.rota.aba === 'telao') return renderTelao();
   if (S.rota.aba === 'previsoes') return mostrarPrevisoes();
   if (S.rota.aba === 'noticias') return renderNoticias($('#vista-noticias'), S.noticias, { entrando });
   S.prevDesenhada = null;
@@ -249,13 +253,13 @@ function renderPresidente() {
     const a = s.cands.find((x) => x.n === A.n), b = s.cands.find((x) => x.n === B.n);
     corpo = duelo({ ...A, sq: a.sq }, { ...B, sq: b.sq }, a.pvap, b.pvap, a.vap, b.vap);
     const outros = s.cands.filter((x) => x.n !== A.n && x.n !== B.n).reduce((t, x) => t + x.pvap, 0);
-    pe = `<span>Resultado final do 1º turno. Diferença de <strong>${curto(Math.abs(a.vap - b.vap))}</strong> de votos. Os demais candidatos somaram ${fmtPct(outros)}%.</span>`;
+    pe = `<span>Resultado final do 1º turno. Diferença de <strong>${curto(Math.abs(a.vap - b.vap))}</strong>${deQtd(Math.abs(a.vap - b.vap))} votos. Os demais candidatos somaram ${fmtPct(outros)}%.</span>`;
   } else {
     const m = modoAtual(r);
     if (m === 'oficial') {
       const sm = r.live.summary, a = votosDe(sm, A.n), b = votosDe(sm, B.n), V = a + b || 1;
       corpo = duelo(A, B, (a / V) * 100, (b / V) * 100, a, b);
-      pe = `<span><strong>${fmtPct(sm.secoes.pst, 1)}%</strong> das seções totalizadas. ${sm.totalFinal ? 'Resultado final do TSE.' : sm.md === 'e' ? 'Resultado matematicamente definido.' : `Ainda faltam cerca de <strong>${curto(c.esperado.faltam)}</strong> de votos válidos.`}</span>`;
+      pe = `<span><strong>${fmtPct(sm.secoes.pst, 1)}%</strong> das seções totalizadas. ${sm.totalFinal ? 'Resultado final do TSE.' : sm.md === 'e' ? 'Resultado matematicamente definido.' : `Ainda faltam cerca de <strong>${curto(c.esperado.faltam)}</strong>${deQtd(c.esperado.faltam)} votos válidos.`}</span>`;
     } else if (m === 'projecao') {
       const t = c.proj.total, i = c.proj.incerteza;
       corpo = duelo(A, B, t.pctA, t.pctB, t.A, t.B);
@@ -263,12 +267,12 @@ function renderPresidente() {
     } else {
       const f = c.final;
       corpo = duelo(A, B, f.pA, f.pB, f.A, f.B);
-      pe = `<span>Cenário do simulador. Diferença de <strong>${curto(Math.abs(f.margem))}</strong> de votos. <a class="link" href="#simulador-pres">Ajustar</a></span>`;
+      pe = `<span>Cenário do simulador. Diferença de <strong>${curto(Math.abs(f.margem))}</strong>${deQtd(Math.abs(f.margem))} votos. <a class="link" href="#simulador-pres">Ajustar</a></span>`;
     }
   }
   $('#placar').innerHTML = `<div class="placar-topo"><h1>Presidente</h1><div class="controles-placar">
       ${S.turno === 2 ? alternar('modo', modosDisponiveis(r), modoAtual(r)) : ''}${alternar('turno', [['1', '1º turno'], ['2', '2º turno']], String(S.turno))}</div></div>
-    ${corpo}<div class="placar-pe">${pe}</div>`;
+    ${corpo}<div class="placar-pe">${pe}</div>${S.turno === 2 ? blocoVirada(r) : ''}`;
   prepararMapa('br');
   const dados = {};
   S.dicas = {};
@@ -391,23 +395,142 @@ function blocoRegioes(c) {
   return `<section><h2>Por região</h2><p class="intro">Divisão dos votos válidos entre ${esc(A.nmu)} e ${esc(B.nmu)} em cada região do país e no exterior.</p><div class="regioes">${cel}</div></section>`;
 }
 
+/**
+ * "Ainda dá para virar?" durante a contagem. Usa os votos oficiais já apurados, a estimativa do
+ * simulador para o que falta e, como teto, os eleitores das seções ainda não totalizadas (TSE).
+ * A mesma regra vale para quem estiver atrás, seja quem for.
+ */
+function dadosVirada(r) {
+  if (!temVotos(r) || encerrada(r) || r.live.summary.totalFinal) return null;
+  const sm = r.live.summary, [A, B] = fins(r);
+  const c = calcular(r, { comApuracao: true });
+  if (!c) return null;
+  const s = situacaoVirada({ a: votosDe(sm, A.n), b: votosDe(sm, B.n), faltam: c.esperado.faltam, esperadoA: c.esperado.esperado, eleitoresRestantes: sm.eleitores.esnt });
+  return { s, sm, atras: s.atras === 'A' ? A : B };
+}
+const pctFr = (x) => `${fmtPct(x * 100, 1)}%`;
+/** Uma linha só, para o telão. */
+function linhaVirada(r) {
+  const d = dadosVirada(r);
+  if (!d) return '';
+  const { s, sm, atras } = d;
+  if (s.impossivel || sm.md === 'e') return s.impossivel ? `Não dá mais para virar: a diferença é maior que todos os eleitores das seções que faltam.` : 'O TSE indica resultado matematicamente definido.';
+  if (s.precisa > 1) return `Pela estimativa, ${esc(atras.nmu)} não alcança nem com todos os votos válidos que faltam.`;
+  return `Para virar, ${esc(atras.nmu)} precisa de ${pctFr(s.precisa)} dos votos que faltam${s.recebe == null ? '' : ` (estimativa: ${pctFr(s.recebe)})`}.`;
+}
+
+function blocoVirada(r, { titulo: h = 'h2', classe = '', cores = [CA, CB] } = {}) {
+  const d = dadosVirada(r);
+  if (!d) return '';
+  const { s, sm, atras } = d;
+  const cor = s.atras === 'A' ? cores[0] : cores[1];
+  const pct = pctFr;
+  let resp, texto, medidor = '';
+  if (s.impossivel || sm.md === 'e') {
+    resp = 'Não';
+    texto = s.impossivel
+      ? `A diferença de <b>${curto(s.diferenca)}</b>${deQtd(s.diferenca)} votos é maior que o número de eleitores das seções que ainda faltam (${curto(s.teto)}). Mesmo que todos fossem votar e votassem em ${esc(atras.nmu)}, não alcançaria.`
+      : 'O TSE indica que o resultado está matematicamente definido.';
+  } else if (s.precisa > 1) {
+    resp = 'Pela estimativa, não';
+    texto = `${esc(atras.nmu)} está <b>${curto(s.diferenca)}</b>${deQtd(s.diferenca)} votos atrás e faltam cerca de ${curto(s.faltam)}${deQtd(s.faltam)} votos válidos: nem com todos eles alcançaria. Só com mais votos do que o estimado. No limite, com todos os ${curto(s.teto)}${deQtd(s.teto)} eleitores das seções que faltam votando, precisaria de ${pct(s.precisaNoTeto)} deles.`;
+  } else {
+    resp = 'Sim';
+    texto = `${esc(atras.nmu)} está <b>${curto(s.diferenca)}</b>${deQtd(s.diferenca)} votos atrás. Faltam cerca de ${curto(s.faltam)}${deQtd(s.faltam)} votos válidos. Para empatar, precisa de <b>${pct(s.precisa)}</b> deles${s.recebe == null ? '.' : `; pela tendência das seções que faltam, ficaria com ${pct(s.recebe)}.`}`;
+    medidor = `<div class="medidor-virada" role="img" aria-label="Precisa de ${pct(s.precisa)} dos votos que faltam${s.recebe == null ? '' : `; estimativa de ${pct(s.recebe)}`}">
+      ${s.recebe == null ? '' : `<span class="est" style="width:${clamp(s.recebe, 0, 1) * 100}%;background:${cor}"></span>`}
+      <i class="precisa ${s.precisa > 0.8 ? 'dir' : s.precisa < 0.2 ? 'esq' : ''}" style="left:${clamp(s.precisa, 0, 1) * 100}%"><b>precisa ${pct(s.precisa)}</b></i></div>
+      <div class="medidor-pe"><span>0%</span><span>${s.recebe == null ? '' : `estimativa: ${pct(s.recebe)}`}</span><span>100% dos votos que faltam</span></div>`;
+  }
+  return `<div class="virada-card ${classe}"><${h}>Ainda dá para virar? <span class="resp">${resp}</span></${h}><p>${texto}</p>${medidor}
+    <p class="nota">Votos que faltam: estimativa a partir das seções que faltam em cada estado. Teto: eleitores das seções ainda não totalizadas, segundo o TSE.</p></div>`;
+}
+
+// ---------- como a apuração andou ----------
+const horaCurta = (t) => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); return m ? `${Number(m[1])}h${m[2]}` : ''; };
+const pontosEvolucao = (r) => (r.live.history || []).filter((h) => h.pA !== null && h.pst > 0);
+const temDiferenca = (pts) => pts.every((p) => p.vA != null && p.vB != null);
+function legendaPonto(r, p) {
+  const [A, B] = fins(r);
+  const d = p.vA != null ? Math.abs(p.vA - p.vB) : null;
+  return `${horaCurta(p.t) ? `${horaCurta(p.t)} · ` : ''}${fmtPct(p.pst, 1)}% das seções · ${A.nmu} ${fmtPct(p.pA)}% × ${B.nmu} ${fmtPct(p.pB)}%${d == null ? '' : ` · diferença de ${curto(d)}${deQtd(d)} votos`}`;
+}
+
+/**
+ * Gráfico da apuração. modo 'pct': percentual de cada um; 'dif': diferença em votos (acima da
+ * linha do zero, A à frente; abaixo, B). n: quantos pontos desenhar (o "rever" vai aumentando);
+ * os eixos usam todos os pontos, para o gráfico não mudar de escala durante a animação.
+ */
+function svgEvolucao(r, pts, modo, n = pts.length) {
+  const [A, B] = fins(r);
+  const W = Math.round(Math.min(720, Math.max(300, document.documentElement.clientWidth - 32))), H = W < 480 ? 190 : 210, pad = { l: modo === 'dif' ? 58 : 40, r: 8, t: 12, b: 26 };
+  const x = (v) => pad.l + (W - pad.l - pad.r) * (v / 100);
+  const vis = pts.slice(0, Math.max(1, n)), u = vis.at(-1);
+  let lo, hi, ticks, series, rotY, extra = '';
+  if (modo === 'dif') {
+    const ds = pts.map((p) => p.vA - p.vB);
+    const M = Math.max(1, ...ds.map(Math.abs)) * 1.15;
+    lo = -M; hi = M; ticks = [-M * 0.8, 0, M * 0.8];
+    rotY = (v) => (v === 0 ? '0' : curto(Math.abs(v)));
+    series = [{ k: (p) => p.vA - p.vB, cor: 'var(--tinta)' }];
+  } else {
+    const vals = pts.flatMap((p) => [p.pA, p.pB]);
+    lo = Math.max(0, Math.floor(Math.min(...vals, 50) / 5) * 5 - 5); hi = Math.min(100, Math.ceil(Math.max(...vals, 50) / 5) * 5 + 5);
+    ticks = [lo, 50, hi]; rotY = (v) => `${v}%`;
+    series = [{ k: (p) => p.pA, cor: 'var(--a)' }, { k: (p) => p.pB, cor: 'var(--b)' }];
+  }
+  const y = (v) => pad.t + (H - pad.t - pad.b) * (1 - (v - lo) / (hi - lo));
+  if (modo === 'dif') {
+    extra = `<text x="${W - pad.r}" y="${y(0) - 7}" text-anchor="end" class="lado" style="fill:var(--a)">↑ ${esc(A.nmu)} à frente</text>
+      <text x="${W - pad.r}" y="${y(0) + 16}" text-anchor="end" class="lado" style="fill:var(--b)">↓ ${esc(B.nmu)} à frente</text>`;
+  }
+  const linha = (k) => vis.map((p, i) => `${i ? 'L' : 'M'}${x(p.pst).toFixed(1)},${y(k(p)).toFixed(1)}`).join(' ');
+  // Pontos para a dica (no máximo ~120, para não pesar)
+  const passo = Math.max(1, Math.ceil(vis.length / 120));
+  const alvos = vis.filter((_, i) => i % passo === 0 || i === vis.length - 1)
+    .map((p) => `<circle class="alvo" cx="${x(p.pst).toFixed(1)}" cy="${y(series[0].k(p)).toFixed(1)}" r="7" data-dica="${esc(legendaPonto(r, p))}"/>`).join('');
+  return `<svg class="grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="${modo === 'dif' ? 'Diferença em votos' : 'Percentuais'} durante a apuração. Último ponto: ${esc(legendaPonto(r, u))}">
+    ${ticks.map((v) => `<line class="${v === 0 || v === 50 ? 'grade zero' : 'grade'}" x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${pad.l - 8}" y="${y(v) + 4}" text-anchor="end">${rotY(v)}</text>`).join('')}
+    ${(W < 480 ? [0, 50, 100] : [0, 25, 50, 75, 100]).map((v) => `<text x="${x(v)}" y="${H - 6}" text-anchor="${v === 100 ? 'end' : v === 0 ? 'start' : 'middle'}">${v}%${v === 100 ? ' das seções' : ''}</text>`).join('')}
+    ${extra}${series.map((s) => `<path d="${linha(s.k)}" fill="none" stroke="${s.cor}" stroke-width="2.2" stroke-linejoin="round"/>`).join('')}
+    ${series.map((s) => `<circle cx="${x(u.pst)}" cy="${y(s.k(u))}" r="4.5" fill="${s.cor}" stroke="var(--bg)" stroke-width="2"/>`).join('')}${alvos}</svg>`;
+}
+
 function blocoEvolucao(r) {
-  const pts = (r.live.history || []).filter((h) => h.pA !== null && h.pst > 0);
+  const pts = pontosEvolucao(r);
   if (S.turno !== 2 || pts.length < 2) return '';
   const [A, B] = fins(r);
-  // Desenhado na largura da tela: no celular o texto não encolhe junto com o gráfico
-  const W = Math.round(Math.min(720, Math.max(300, document.documentElement.clientWidth - 32))), H = W < 480 ? 180 : 200, pad = { l: 40, r: 8, t: 10, b: 26 };
-  const vals = pts.flatMap((p) => [p.pA, p.pB]);
-  const lo = Math.max(0, Math.floor(Math.min(...vals, 50) / 5) * 5 - 5), hi = Math.min(100, Math.ceil(Math.max(...vals, 50) / 5) * 5 + 5);
-  const x = (v) => pad.l + (W - pad.l - pad.r) * (v / 100), y = (v) => pad.t + (H - pad.t - pad.b) * (1 - (v - lo) / (hi - lo));
-  const linha = (k) => pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.pst).toFixed(1)},${y(p[k]).toFixed(1)}`).join(' ');
-  const u = pts.at(-1);
-  return `<section><h2>Como a apuração andou</h2><p class="intro">${quad(CA)}${esc(A.nmu)} &nbsp; ${quad(CB)}${esc(B.nmu)}. Percentual dos votos válidos conforme as seções foram totalizadas.</p>
-    <svg class="grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução dos percentuais durante a apuração">
-      ${[lo, 50, hi].map((v) => `<line class="grade" x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${pad.l - 8}" y="${y(v) + 4}" text-anchor="end">${v}%</text>`).join('')}
-      ${(W < 480 ? [0, 50, 100] : [0, 25, 50, 75, 100]).map((v) => `<text x="${x(v)}" y="${H - 6}" text-anchor="${v === 100 ? 'end' : 'middle'}">${v}%</text>`).join('')}
-      <path d="${linha('pA')}" fill="none" stroke="var(--a)" stroke-width="2"/><path d="${linha('pB')}" fill="none" stroke="var(--b)" stroke-width="2"/>
-      <circle cx="${x(u.pst)}" cy="${y(u.pA)}" r="4" fill="var(--a)" stroke="var(--bg)" stroke-width="2"/><circle cx="${x(u.pst)}" cy="${y(u.pB)}" r="4" fill="var(--b)" stroke="var(--bg)" stroke-width="2"/></svg></section>`;
+  const dif = temDiferenca(pts);
+  const modo = dif && S.evolModo === 'dif' ? 'dif' : 'pct';
+  const n = S.evolRever?.id === r.id ? S.evolRever.i : pts.length;
+  const intro = modo === 'dif' ? 'Diferença em votos válidos entre os dois conforme as seções foram totalizadas.' : `${quad(CA)}${esc(A.nmu)} &nbsp; ${quad(CB)}${esc(B.nmu)}. Percentual dos votos válidos conforme as seções foram totalizadas.`;
+  return `<section id="evolucao"><div class="evol-cab"><h2>Como a apuração andou</h2>${alternar('evol', [['pct', 'Percentuais'], ['dif', 'Diferença em votos', dif]], modo)}</div>
+    <p class="intro">${intro} Passe o mouse ou toque na linha para ver cada momento.</p>
+    <div id="evol-svg">${svgEvolucao(r, pts, modo, n)}</div>
+    <div class="evol-pe"><button type="button" class="botao-2" id="evol-rever">${S.evolRever ? 'Parar' : 'Rever a apuração'}</button><span id="evol-leg" aria-live="polite">${esc(legendaPonto(r, pts[Math.max(0, n - 1)]))}</span></div></section>`;
+}
+
+/** Anima o gráfico do começo ao ponto atual, em uns 8 segundos. Clicar de novo para. */
+function reverApuracao(r) {
+  clearInterval(S.evolTimer);
+  if (S.evolRever) { S.evolRever = null; return render(); }
+  const pts = pontosEvolucao(r);
+  if (pts.length < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const passo = Math.max(1, Math.ceil(pts.length / 100));
+  S.evolRever = { id: r.id, i: 2 };
+  const quadro = () => {
+    const el = $('#evol-svg');
+    const total = pontosEvolucao(r);
+    if (!el || !S.evolRever) { clearInterval(S.evolTimer); S.evolRever = null; return; }
+    const modo = temDiferenca(total) && S.evolModo === 'dif' ? 'dif' : 'pct';
+    el.innerHTML = svgEvolucao(r, total, modo, S.evolRever.i);
+    $('#evol-leg').textContent = legendaPonto(r, total[S.evolRever.i - 1]);
+    if (S.evolRever.i >= total.length) { clearInterval(S.evolTimer); S.evolRever = null; $('#evol-rever').textContent = 'Rever a apuração'; return; }
+    S.evolRever.i = Math.min(total.length, S.evolRever.i + passo);
+  };
+  $('#evol-rever').textContent = 'Parar';
+  quadro();
+  S.evolTimer = setInterval(quadro, 80);
 }
 
 function blocoCronologia() {
@@ -428,7 +551,7 @@ function renderExterior() {
     const V = tot.a + tot.b + (t === 't1' ? tot.outros : 0);
     const u1 = r.baseline.units.zz;
     corpo = duelo({ ...A, sq: u1?.cands.find((x) => x.n === A.n)?.sq }, { ...B, sq: u1?.cands.find((x) => x.n === B.n)?.sq }, (tot.a / V) * 100, (tot.b / V) * 100, tot.a, tot.b) +
-      `<div class="placar-pe"><span><strong>${fmtPct(tot.pst, 1)}%</strong> das seções do exterior. ${curto(tot.te)} eleitores, comparecimento de ${fmtPct(tot.pc)}%.</span></div>`;
+      `<div class="placar-pe"><span><strong>${fmtPct(tot.pst, 1)}%</strong> das seções do exterior. ${curto(tot.te)}${deQtd(tot.te)} eleitores, comparecimento de ${fmtPct(tot.pc)}%.</span></div>`;
   }
   $('#placar').innerHTML = `<div class="placar-topo"><h1>Presidente no exterior</h1><div class="controles-placar">${alternar('turno', [['1', '1º turno'], ['2', '2º turno']], String(S.turno))}</div></div>${corpo}`;
   prepararMapa('mundo');
@@ -451,7 +574,7 @@ function renderExterior() {
     const pA = p.a + p.b ? (p.a / (p.a + p.b)) * 100 : null, aberto = S.paisAberto === p.iso;
     return `<li><button type="button" data-pais="${esc(p.iso)}" aria-expanded="${aberto}"><span class="nm">${esc(p.nome)}</span>
       <span class="v" style="color:${pA === null ? 'var(--tinta-3)' : pA >= 50 ? 'var(--a)' : 'var(--b)'}">${pA === null ? '–' : `${fmtPct(Math.max(pA, 100 - pA), 0)}%`}</span>
-      <span class="sub">${p.cidades.length} ${p.cidades.length > 1 ? 'cidades' : 'cidade'}, ${curto(p.te)} eleitores${pA === null ? '' : `, ${esc((pA >= 50 ? A : B).nmu)} à frente`}</span>
+      <span class="sub">${p.cidades.length} ${p.cidades.length > 1 ? 'cidades' : 'cidade'}, ${curto(p.te)}${deQtd(p.te)} eleitores${pA === null ? '' : `, ${esc((pA >= 50 ? A : B).nmu)} à frente`}</span>
       ${pA === null ? '' : barra(pA, 100 - pA, CA, CB, { pequena: true })}</button>
       ${aberto ? `<div class="cidades-pais">${p.cidades.sort((a, b) => b.eleitores - a.eleitores).map((x) => `<div><span>${esc(titulo(x.nome))}</span><span>${x.pA === null ? '–' : `${fmtPct(x.pA, 0)}% a ${fmtPct(100 - x.pA, 0)}%`}</span></div>`).join('')}</div>` : ''}</li>`;
   }).join('');
@@ -506,13 +629,83 @@ function painelGovUf(uf) {
     if (s.tipo === 'segundo') topo = `<div class="bloco"><h3>2º turno, cenário do simulador</h3>${linhaCand(s.A, s.ca, c.final.pA, Math.round(c.final.A))}${linhaCand(s.B, s.cb, c.final.pB, Math.round(c.final.B))}${barra(c.final.pA, c.final.pB, s.ca, s.cb, { pequena: true })}</div>`;
     else {
       topo = `<div class="bloco"><h3>${esc(rotuloGov(s))}</h3>${linhaCand(s.A, s.ca, s.pA, s.a)}${linhaCand(s.B, s.cb, s.pB, s.b)}${barra(s.pA, s.pB, s.ca, s.cb, { pequena: true })}
-        ${c.proj && s.apur < 100 ? `<p class="nota" style="margin-top:12px">Projeção: ${esc(s.A.nmu)} ${fmtPct(c.proj.total.pctA)}%</p>` : ''}</div>`;
+        ${c.proj && s.apur < 100 ? `<p class="nota" style="margin-top:12px">Projeção: ${esc(s.A.nmu)} ${fmtPct(c.proj.total.pctA)}%</p>` : ''}</div>${blocoVirada(s.g, { titulo: 'h3', classe: 'bloco compacto', cores: [s.ca, s.cb] })}`;
     }
     topo += `<div class="acoes"><a class="botao" href="#simulador-gov-${uf}">Simular este 2º turno</a></div>`;
   }
   const cands = (S.endorsers[uf]?.gov || []).slice(0, 6);
   return `<div class="painel-cab"><div><h2>${esc(ufNome(uf))}</h2><p class="sub">Governador. ${esc(rotuloGov(s))}.</p></div>${fechar}</div>${topo}
     <div class="bloco"><h3>1º turno, resultado final</h3>${cands.map((x) => linhaCand(x, corPartido(x.partido), x.pvap, x.vap, { menor: true })).join('')}</div>${blocoSenUf(uf)}`;
+}
+
+// =================== TELÃO ===================
+// Para TV ou projetor: números grandes, só votos oficiais apurados, passa sozinho pelas disputas.
+const TELAO_MS = 12_000;
+const comFoto = (r, c) => ({ ...c, sq: c.sq || r.baseline.summary?.cands.find((x) => x.n === c.n)?.sq });
+function slidesTelao() {
+  return [{ id: 'pres', r: S.pres }, ...S.races.filter((x) => x.cargo === 3).map((x) => ({ id: x.id, uf: x.scope, r: S.gov[x.scope] }))]
+    .filter((s) => s.r && fins(s.r).length === 2 && s.r.baseline.summary);
+}
+/** Placar de uma disputa: apurado oficial no 2º turno ou, antes da contagem, o 1º turno. */
+function placarTelao(r) {
+  const [A, B] = fins(r);
+  if (temVotos(r)) {
+    const sm = r.live.summary, vA = votosDe(sm, A.n), vB = votosDe(sm, B.n), V = vA + vB || 1;
+    const fim = sm.totalFinal || sm.md === 'e';
+    return { A, B, vA, vB, pA: (vA / V) * 100, pB: (vB / V) * 100,
+      sub: `${fmtPct(sm.secoes.pst, 1)}% das seções totalizadas · diferença de ${curto(Math.abs(vA - vB))}${deQtd(Math.abs(vA - vB))} votos${sm.totalFinal ? ' · resultado final do TSE' : fim ? ' · matematicamente definido' : ''}` };
+  }
+  const s1 = r.baseline.summary, a = s1.cands.find((x) => x.n === A.n), b = s1.cands.find((x) => x.n === B.n);
+  return { A, B, vA: a?.vap, vB: b?.vap, pA: a?.pvap, pB: b?.pvap, primeiro: true, sub: 'Resultado do 1º turno. A apuração do 2º turno começa em 25 de outubro, às 17h de Brasília.' };
+}
+/** Mapa do presidente só com o que o TSE já totalizou (sem projeção nem simulação). */
+function mapaTelao(r) {
+  const [A, B] = fins(r), dados = {};
+  for (const cd of UFS) {
+    const lu = temVotos(r) ? r.live.units[cd] : r.baseline.units[cd];
+    if (!lu || (temVotos(r) && !lu.secoes?.st)) { dados[cd] = { fill: 'var(--vazio)' }; continue; }
+    const a = votosDe(lu, A.n), b = votosDe(lu, B.n), pA = a + b ? (a / (a + b)) * 100 : 50;
+    dados[cd] = { fill: tom(pA >= 50 ? CA : CB, Math.abs(2 * pA - 100), !temVotos(r) || lu.andamento === 'f'), cor: pA >= 50 ? CA : CB };
+  }
+  return dados;
+}
+function renderTelao() {
+  const slides = slidesTelao();
+  const el = $('#vista-telao');
+  if (!slides.length) { el.innerHTML = '<p class="telao-sub">Carregando os dados do TSE…</p>'; return; }
+  S.telaoI = ((S.telaoI || 0) % slides.length + slides.length) % slides.length;
+  const sl = slides[S.telaoI], r = sl.r;
+  const p = placarTelao(r);
+  let ca = CA, cb = CB;
+  if (sl.id !== 'pres') { ca = corPartido(p.A.partido); cb = corPartido(p.B.partido) === ca ? 'var(--tinta-3)' : corPartido(p.B.partido); }
+  const lado = (c, pct, votos, cor, l) => `<div class="telao-lado ${l}">${avatar(comFoto(r, c), { tam: 120, cor })}<div class="telao-nome">${esc(c.nmu)}<small>${esc(c.partido || '')}</small></div>
+    <div class="telao-pct" style="color:${cor}">${pct == null ? '–' : fmtPct(pct, 1)}<small>%</small></div><div class="telao-votos">${votos == null ? '' : `${fmtInt(votos)} votos`}</div></div>`;
+  const titulo = sl.id === 'pres' ? 'Presidente' : `Governador · ${ufNome(sl.uf)}`;
+  const simulado = S.status?.modoTeste && !p.primeiro;
+  const hora = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+  el.innerHTML = `<div class="telao-topo"><span class="telao-titulo">${esc(titulo)}${p.primeiro ? ' <small>1º turno</small>' : ' <small>2º turno</small>'}</span><span class="telao-relogio">${hora} <small>Brasília</small></span></div>
+    ${simulado ? '<p class="telao-selo">2º turno simulado para teste · não é resultado</p>' : ''}
+    <div class="telao-grade ${sl.id === 'pres' ? 'com-mapa' : ''}">
+      <div class="telao-corpo"><div class="telao-duelo">${lado(p.A, p.pA, p.vA, ca, 'a')}${lado(p.B, p.pB, p.vB, cb, 'b')}</div>
+        ${p.pA == null ? '' : barra(p.pA, p.pB, ca, cb)}<p class="telao-sub">${esc(p.sub)}</p>${p.primeiro ? '' : `<p class="telao-virada">${linhaVirada(r)}</p>`}</div>
+      ${sl.id === 'pres' ? '<div id="telao-mapa" class="telao-mapa mapa"></div>' : ''}
+    </div>
+    <div class="telao-pe"><span>Fonte: TSE · ${esc(location.host)}</span>
+      <span class="telao-pontos" aria-label="Disputa ${S.telaoI + 1} de ${slides.length}">${slides.map((_, i) => `<i class="${i === S.telaoI ? 'atual' : ''}"></i>`).join('')}</span>
+      <span class="telao-acoes"><button type="button" class="botao-2" id="telao-cheia">Tela cheia</button><a class="botao-2" href="#presidente">Sair</a></span></div>`;
+  if (sl.id === 'pres') desenharBrasil($('#telao-mapa'), mapaTelao(r), { rotulos: false });
+  if (!S.telaoTimer) {
+    S.telaoTimer = setInterval(() => {
+      if (S.rota.aba !== 'telao') { clearInterval(S.telaoTimer); S.telaoTimer = null; return; }
+      S.telaoI++; render();
+    }, TELAO_MS);
+  }
+}
+/** Troca de disputa pelo teclado; recomeça a contagem dos 12 s. */
+function passarTelao(d) {
+  clearInterval(S.telaoTimer); S.telaoTimer = null;
+  S.telaoI = (S.telaoI || 0) + d;
+  render();
 }
 
 // =================== SENADO ===================
@@ -661,8 +854,8 @@ function atualizarSim(r, c) {
   $('#sim-trilho').style.setProperty('--pos', `${(s * 100).toFixed(1)}%`);
   $('#sim-pa').textContent = `${fmtPct(s * 100)}%`;
   $('#sim-pb').textContent = `${fmtPct((1 - s) * 100)}%`;
-  $('#sim-qa').textContent = `+${curto(f.faltam * s)} votos`;
-  $('#sim-qb').textContent = `+${curto(f.faltam * (1 - s))} votos`;
+  $('#sim-qa').textContent = `+${curto(f.faltam * s)}${deQtd(f.faltam * s)} votos`;
+  $('#sim-qb').textContent = `+${curto(f.faltam * (1 - s))}${deQtd(f.faltam * (1 - s))} votos`;
   const marcar = (el, v) => { el.hidden = v === null || v < 0 || v > 1; if (!el.hidden) el.style.left = `calc(${(v * 100).toFixed(2)}% + ${(12 - v * 24).toFixed(1)}px)`; };
   marcar($('#mk-esp'), f.esperado);
   marcar($('#mk-vir'), f.viradaA);
@@ -693,7 +886,7 @@ function atualizarSim(r, c) {
   $('#sim-resumo').innerHTML = `<p class="rot">${r.cargo === 1 ? 'Presidente' : `Governador, ${esc(ufNome(r.scope))}`}, no seu cenário</p>
     <p class="veredito">${empate ? 'Empate: cada um fica com 50% dos votos válidos' : `${esc(venc.nmu)} é eleito com ${fmtPct(Math.max(f.pA, f.pB))}% dos votos válidos`}</p>
     ${linhaCand(A, CA, f.pA, Math.round(f.A))}${linhaCand(B, CB, f.pB, Math.round(f.B))}${barra(f.pA, f.pB, CA, CB, { pequena: true })}
-    <div class="bloco"><dl class="dados"><dt>Diferença</dt><dd>${curto(Math.abs(f.margem))} de votos</dd><dt>Votos válidos no total</dt><dd>${fmtInt(f.validos)}</dd>
+    <div class="bloco"><dl class="dados"><dt>Diferença</dt><dd>${curto(Math.abs(f.margem))}${deQtd(Math.abs(f.margem))} votos</dd><dt>Votos válidos no total</dt><dd>${fmtInt(f.validos)}</dd>
       <dt>Em relação à estimativa</dt><dd>${Math.abs(dEsp) < 0.005 ? 'igual' : `${esc(A.nmu)} ${fmtPp(dEsp, 2)} pp`}</dd></dl></div>
     <div class="bloco"><h3>Chance em ${fmtInt(i.n)} variações do que falta</h3><div class="chance"><span style="flex:${i.pVitoriaA};background:var(--a)"></span><span style="flex:${i.pVitoriaB};background:var(--b)"></span></div>
       <dl class="dados"><dt>${esc(A.nmu)}</dt><dd>${fmtPct(i.pVitoriaA * 100, 0)}%</dd><dt>${esc(B.nmu)}</dt><dd>${fmtPct(i.pVitoriaB * 100, 0)}%</dd></dl></div>
@@ -710,6 +903,18 @@ function mudouSim(r) {
 }
 
 function ligar() {
+  // Telão: setas trocam a disputa; cursor e controles somem com o mouse parado
+  let ocioso;
+  document.addEventListener('keydown', (e) => {
+    if (S.rota.aba !== 'telao' || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === 'ArrowRight') passarTelao(1);
+    else if (e.key === 'ArrowLeft') passarTelao(-1);
+  });
+  document.addEventListener('pointermove', () => {
+    document.body.classList.remove('ocioso');
+    clearTimeout(ocioso);
+    if (S.rota.aba === 'telao') ocioso = setTimeout(() => document.body.classList.add('ocioso'), 3000);
+  });
   window.addEventListener('hashchange', () => { S.paisAberto = null; render(); });
   document.addEventListener('click', (e) => {
     if (e.target.id === 'fundo') return ir(S.rota.aba);
@@ -720,6 +925,9 @@ function ligar() {
     if (t.dataset.pais) { S.paisAberto = S.paisAberto === t.dataset.pais ? null : t.dataset.pais; return render(); }
     if (t.matches('path[data-uf]') && t.closest('#mapa svg.br')) { const a = S.rota.aba; return ir(S.rota.uf === t.dataset.uf ? a : `${a}-${t.dataset.uf}`); }
     if (t.id === 'busca-abrir') return abrirBusca();
+    if (t.dataset.evol && !t.disabled) { S.evolModo = t.dataset.evol; return render(); }
+    if (t.id === 'evol-rever') return reverApuracao(S.pres);
+    if (t.id === 'telao-cheia') return document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.().catch(() => {});
     if (S.rota.aba !== 'simulador') return;
     const r = raceSim(), o = opts(r);
     if (t.dataset.atalho) {

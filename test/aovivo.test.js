@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pontoDePartida, cenarioFinal, agruparPorRegiao } from '../src/shared/aovivo.js';
+import { pontoDePartida, cenarioFinal, agruparPorRegiao, situacaoVirada } from '../src/shared/aovivo.js';
 
 // Três UFs de regiões diferentes; parte já apurada
 const pp = {
@@ -66,4 +66,21 @@ test('pontoDePartida usa a projeção quando há apuração', () => {
   assert.equal(p.rem, 50);
   assert.ok(Math.abs(p.share - 0.52) < 1e-9);
   assert.equal(agruparPorRegiao({ sp: p }).sudeste.rem, 50);
+});
+
+test('ainda dá para virar: fração necessária, estimativa e teto oficial', () => {
+  // A na frente por 1 milhão; faltam 10 milhões de válidos pela estimativa
+  const s = situacaoVirada({ a: 51e6, b: 50e6, faltam: 10e6, esperadoA: 0.48, eleitoresRestantes: 14e6 });
+  assert.equal(s.atras, 'B');
+  assert.equal(s.diferenca, 1e6);
+  assert.equal(s.precisa, 0.55); // (1 + 10) / 20
+  assert.equal(s.recebe, 0.52);
+  assert.equal(s.impossivel, false);
+  assert.equal(s.precisaNoTeto, 15e6 / 28e6);
+  // Diferença maior que todos os eleitores das seções que faltam: impossível só com dados oficiais
+  const fim = situacaoVirada({ a: 40e6, b: 52e6, faltam: 3e6, esperadoA: 0.6, eleitoresRestantes: 5e6 });
+  assert.equal(fim.atras, 'A');
+  assert.equal(fim.recebe, 0.6);
+  assert.equal(fim.impossivel, true);
+  assert.ok(fim.precisa > 1);
 });

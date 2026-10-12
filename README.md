@@ -6,11 +6,12 @@ Sistema web que lê os **arquivos oficiais de divulgação do TSE** e mostra a a
 
 Visual claro e limpo, em quatro abas: Resultado, Previsões, Notícias e Simulador.
 
-- **Resultado**: placar no topo, com 1º e 2º turno e, durante a apuração, os modos Oficial, Projeção e Simulação. Abaixo vêm o mapa do Brasil e um painel ao lado. Clique em um estado, ou escolha na lista, para ver Presidente, Governador e Senado ali. Mais abaixo ficam a divisão por região, a evolução da apuração e o registro do que aconteceu.
+- **Resultado**: placar no topo, com 1º e 2º turno e, durante a apuração, os modos Oficial, Projeção e Simulação. Abaixo vêm o mapa do Brasil e um painel ao lado. Clique em um estado, ou escolha na lista, para ver Presidente, Governador e Senado ali. Durante a contagem, o quadro **Ainda dá para virar?** mostra de quanto dos votos que faltam quem está atrás precisa, comparado com a estimativa; quando a diferença passa do número de eleitores das seções que faltam (dado do TSE), diz que não dá mais. Mais abaixo ficam a divisão por região, **como a apuração andou** (percentuais ou diferença em votos, com o horário de cada totalização e o botão **Rever a apuração**) e o registro do que aconteceu.
 - Abas de disputa: **Presidente**, **Governadores** (mapa por partido, 2º turno ao vivo, lista de estados), **Senado** (bancada eleita) e **Exterior** (mapa-múndi com as cidades e lista por país).
 - **Previsões**: modelos para o 2º turno presidencial feitos com o histórico de 1989 a 2026 (veja abaixo).
 - **Notícias**: manchetes sobre a eleição de 8 veículos, lidas automaticamente, com filtros, próximas datas (debates e prazos) e pesquisas nas manchetes.
 - **Simulador**: "Quem será eleito?", em votos válidos.
+- **Modo telão** (`#telao`, link ao lado das disputas): para TV ou projetor. Números grandes, só votos oficiais já totalizados, passa sozinho pelo presidente e pelos 2º turnos de governador a cada 12 s (setas do teclado trocam), relógio de Brasília e botão de tela cheia. No modo de teste, o aviso de 2º turno simulado continua na tela.
 
 O nome do site fica em `public/js/marca.js`. Hoje está "2º turno 2026", um nome provisório.
 
@@ -245,3 +246,4 @@ Mapas: [@svg-maps/brazil](https://github.com/VictorCazanave/svg-maps), de Victor
 1. Suba o servidor antes das 17h (Brasília). Ele carrega o 1º turno e espera o TSE publicar o 2º turno na configuração.
 2. Confira `/api/status`: `discovery.federal2Disponivel` deve ficar `true`.
 3. Com muito acesso, ponha um CDN na frente de `/api/*` com cache de 2 a 5 s.
+4. Para TV ou projetor, abra `/#telao` e clique em **Tela cheia**.

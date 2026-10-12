@@ -62,6 +62,32 @@ function deslocar(grupos, alvo) {
 }
 
 /**
+ * "Ainda dá para virar?" durante a apuração.
+ * a, b: votos válidos já apurados de cada finalista.
+ * faltam: votos válidos que ainda faltam, pela estimativa do simulador.
+ * esperadoA: fração dos votos que faltam que A deve receber, pela mesma estimativa.
+ * eleitoresRestantes: eleitores das seções ainda não totalizadas (TSE, campo esnt). É o teto:
+ *   nem com todos eles votando, e votando no mesmo candidato, aparecem mais votos do que isso.
+ * Devolve quem está atrás, a diferença e a fração dos votos restantes de que ele precisa.
+ */
+export function situacaoVirada({ a, b, faltam, esperadoA, eleitoresRestantes }) {
+  const atras = a >= b ? 'B' : 'A';
+  const diferenca = Math.abs(a - b);
+  const precisa = (R) => (R > 0 ? (diferenca + R) / (2 * R) : Infinity);
+  const teto = Math.max(0, eleitoresRestantes || 0);
+  return {
+    atras, diferenca, faltam, teto,
+    // fração dos votos válidos que faltam (estimativa) de que quem está atrás precisa para empatar
+    precisa: precisa(faltam),
+    // quanto quem está atrás deve receber, pela estimativa
+    recebe: esperadoA == null ? null : atras === 'A' ? esperadoA : 1 - esperadoA,
+    // conta só com dados oficiais: a diferença é maior que todos os eleitores que faltam
+    impossivel: diferenca > teto,
+    precisaNoTeto: precisa(teto),
+  };
+}
+
+/**
  * Resultado final do cenário.
  * opcoes.modo: 'nacional' (uma fração para o país) ou 'regional' (uma por região)
  * opcoes.shareNacional: fração de A nos votos que faltam (0..1); null = esperado
