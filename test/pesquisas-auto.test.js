@@ -7,7 +7,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { extrairPesquisa, parNaFrase, registrosNoTexto } from '../src/pesquisas-auto/extrair.js';
-import { lerZip, RegistroPesquisas, nomeInstituto } from '../src/pesquisas-auto/registro-tse.js';
+import { lerZip, RegistroPesquisas, nomeInstituto, abrangenciaDe } from '../src/pesquisas-auto/registro-tse.js';
 import { LeitorMaterias } from '../src/pesquisas-auto/materias.js';
 import { candidatosDe } from '../src/pesquisas-auto/automacao.js';
 import { Pesquisas, periodoCampo } from '../src/pesquisas.js';
@@ -58,6 +58,19 @@ test('reportagem: válidos, totais e margem; manchete de "leia mais" fica de for
   assert.deepEqual(extrairPesquisa(html, C), { registros: ['BR-02949/2026'], validos: { flavio: 52, lula: 48 }, totais: { flavio: 49, lula: 45 }, margem: 2 });
 });
 
+test('reportagem com recortes (escolaridade, idade) e "divulgada neste domingo": fica o resultado geral', () => {
+  const html = pagina([
+    'Flávio Bolsonaro (PL) aparece com 50% das intenções de voto contra 44% de Lula para o segundo turno, segundo pesquisa divulgada neste domingo, 11.',
+    'O levantamento mostra o senador com 53,1% dos votos válidos, contra 46,9% do petista.',
+    'Entre os entrevistados com ensino superior ou mais, Flávio registra 60% das intenções de voto, enquanto Lula tem 30,4%.',
+    'Já no grupo com 60 anos ou mais, Lula aparece à frente, com 51%, contra 43,2% de Flávio.',
+    'Entre os eleitores de 16 a 24 anos, Flávio tem 60,2%, contra 30,9% de Lula.',
+    'O levantamento está registrado sob o número BR-03576/2026. A margem de erro estimada é de 2,19 pontos porcentuais.',
+  ]);
+  // "o senador"/"o petista" sem nome: o extrator não adivinha quem é quem
+  assert.deepEqual(extrairPesquisa(html, C), { registros: ['BR-03576/2026'], validos: null, totais: { flavio: 50, lula: 44 }, margem: 2.19 });
+});
+
 test('reportagem: lista em linhas e articleBody do JSON-LD', () => {
   const lista = pagina(['Veja os números da pesquisa registrada sob o protocolo BR-01111/2026:', 'Flávio Bolsonaro (PL): 41%', 'Lula (PT): 44%', 'Margem de erro: 2,5 pontos percentuais.']);
   assert.deepEqual(extrairPesquisa(lista, C).totais, { flavio: 41, lula: 44 });
@@ -90,24 +103,31 @@ function zip(arquivos) {
   const e = Buffer.alloc(22); e.writeUInt32LE(0x06054b50, 0); e.writeUInt16LE(arquivos.length, 8); e.writeUInt16LE(arquivos.length, 10); e.writeUInt32LE(cd.length, 12); e.writeUInt32LE(off, 16);
   return Buffer.concat([...locais, cd, e]);
 }
-const CAB = '"DT_GERACAO";"SG_UF";"NR_PROTOCOLO_REGISTRO";"NR_CNPJ_EMPRESA";"NM_EMPRESA";"NM_EMPRESA_FANTASIA";"DS_CARGO";"DT_INICIO_PESQUISA";"DT_FIM_PESQUISA";"DT_DIVULGACAO";"QT_ENTREVISTADO";"ST_PESQUISA_PROPRIA";"DS_PLANO_AMOSTRAL"';
-const linha = (uf, reg, cnpj, emp, fant, cargo, ini, fim, div, n) => `"11/10/2026";"${uf}";"${reg}";"${cnpj}";"${emp}";"${fant}";"${cargo}";"${ini} 00:00:00";"${fim} 00:00:00";"${div} 00:00:00";${n};"N";"texto com ""aspas"";
+const CAB = '"DT_GERACAO";"SG_UF";"NR_PROTOCOLO_REGISTRO";"NR_CNPJ_EMPRESA";"NM_EMPRESA";"NM_EMPRESA_FANTASIA";"DS_CARGO";"DT_INICIO_PESQUISA";"DT_FIM_PESQUISA";"DT_DIVULGACAO";"QT_ENTREVISTADO";"ST_PESQUISA_PROPRIA";"DS_DADO_MUNICIPIO";"DS_PLANO_AMOSTRAL"';
+const NAC = 'A área de abrangência da coleta é Brasil.';
+const linha = (uf, reg, cnpj, emp, fant, cargo, ini, fim, div, n, area = NAC) => `"11/10/2026";"${uf}";"${reg}";"${cnpj}";"${emp}";"${fant}";"${cargo}";"${ini} 00:00:00";"${fim} 00:00:00";"${div} 00:00:00";${n};"N";"${area}";"texto com ""aspas"";
 e quebra de linha"`;
 const CSV = [CAB,
   linha('BR', 'BR011112026', '11111111000111', 'DATAFOLHA INSTITUTO DE PESQUISAS LTDA.', '#NULO#', 'Presidente', '2026-10-13', '2026-10-15', '2026-10-16', 2500),
   linha('BR', 'BR022222026', '22222222000122', 'INSTITUTO EXEMPLO DE OPINIAO LTDA', 'EXEMPLO PESQUISAS', 'Presidente', '2026-10-12', '2026-10-14', '2026-10-15', 1800),
   linha('BR', 'BR033332026', '33333333000133', 'ANTIGA LTDA', 'ANTIGA', 'Presidente', '2026-09-28', '2026-10-02', '2026-10-03', 2000),
   linha('SP', 'SP044442026', '44444444000144', 'ESTADUAL LTDA', 'ESTADUAL', 'Governador', '2026-10-12', '2026-10-14', '2026-10-15', 1200),
+  // Presidente, mas só no Distrito Federal: também vem como "BR" no cadastro
+  linha('BR', 'BR055552026', '11111111000111', 'DATAFOLHA INSTITUTO DE PESQUISAS LTDA.', '#NULO#', 'Presidente', '2026-10-13', '2026-10-15', '2026-10-16', 910, 'Área física: A área de abrangência da coleta dos dados é o Distrito Federal.'),
+  linha('BR', 'BR066662026', '66666666000166', 'SEM AREA LTDA', 'SEM AREA', 'Presidente', '2026-10-13', '2026-10-15', '2026-10-16', 1500, 'Os bairros serão informados no prazo legal.'),
 ].join('\r\n');
 const ZIP = zip([['leiame.pdf', Buffer.from('pdf')], ['pesquisa_eleitoral_2026_BRASIL.csv', Buffer.from(CSV, 'latin1')]]);
 
 test('cadastro: lê o zip do TSE e guarda só presidenciais nacionais com campo depois do 1º turno', () => {
   assert.equal(lerZip(ZIP, (n) => n.endsWith('.pdf')).dados.toString(), 'pdf');
   const r = new RegistroPesquisas({ desde: '2026-10-06' });
-  assert.equal(r.importarZip(ZIP), 2);
-  assert.deepEqual(r.get('BR-01111/2026'), { registro: 'BR-01111/2026', instituto: 'Datafolha', cnpj: '11111111000111', inicio: '2026-10-13', fim: '2026-10-15', divulgacao: '2026-10-16', amostra: 2500, propria: false });
+  assert.equal(r.importarZip(ZIP), 4);
+  assert.deepEqual(r.get('BR-01111/2026'), { registro: 'BR-01111/2026', instituto: 'Datafolha', cnpj: '11111111000111', inicio: '2026-10-13', fim: '2026-10-15', divulgacao: '2026-10-16', amostra: 2500, propria: false, abrangencia: 'nacional' });
   assert.equal(r.get('BR-02222/2026').instituto, 'Exemplo Pesquisas');
   assert.equal(r.get('BR-03333/2026'), null, 'campo antes do 1º turno');
+  assert.equal(r.get('BR-05555/2026').abrangencia, 'estadual');
+  assert.equal(r.get('BR-06666/2026').abrangencia, 'indefinida');
+  // A lista pública de próximas pesquisas só tem as nacionais
   assert.deepEqual(r.proximas('2026-10-16').map((p) => p.registro), ['BR-01111/2026']);
   assert.equal(nomeInstituto('#NULO#', 'INSTITUTO VOX BRASIL OPINIAO E PESQUISAS LTDA'), 'Vox Brasil');
 });
@@ -127,7 +147,7 @@ test('cadastro: consulta condicional (só baixa quando muda) e guarda em disco',
     assert.equal(pedidos[1]['If-None-Match'], '"v1"');
     const outro = new RegistroPesquisas({ url: 'x', dataDir: dir });
     await outro.carregar();
-    assert.equal(outro.itens.size, 2);
+    assert.equal(outro.itens.size, 4);
     assert.equal(outro.etag, '"v1"');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
@@ -251,4 +271,32 @@ test('série diária: cada dia só com as pesquisas já divulgadas', () => {
   const so8 = PESQUISAS_2026_2T.filter((p) => !p.depois1T || p.divulgacao === '8/10');
   assert.equal(s[0].centro, previsoes({ pesquisas: so8 }).combinado.centro);
   assert.equal(s.at(-1).centro, previsoes().combinado.centro);
+});
+
+test('abrangência pelo texto do registro (frases dos registros reais de outubro de 2026)', () => {
+  const a = (area, plano = '') => abrangenciaDe({ DS_DADO_MUNICIPIO: area, DS_PLANO_AMOSTRAL: plano });
+  assert.equal(a('A área de abrangência da coleta dos dados é Brasil, contemplando municípios das cinco grandes regiões.'), 'nacional');
+  assert.equal(a('A área de abrangência da coleta é Nacional (Brasil).'), 'nacional');
+  assert.equal(a('#NULO#', 'Amostra representando as características do eleitorado de Brasil.'), 'nacional');
+  assert.equal(a('', 'A amostra será distribuída pelas 27 Unidades da Federação.'), 'nacional');
+  // estaduais, mesmo com "população brasileira" ou "país" em outro trecho
+  assert.equal(a('A área de abrangência da coleta é estadual, restrita ao Estado do Amazonas.', 'Ponderação pela PNAD da população brasileira.'), 'estadual');
+  assert.equal(a('A área de abrangência da coleta é o território do estado do Tocantins.', 'Eleitores residentes no país.'), 'estadual');
+  assert.equal(a('', 'A amostra contemplou as onze regiões geográficas imediatas do RN.'), 'estadual');
+  assert.equal(a('', 'para 1344 eleitores do Acre (AC)'), 'estadual');
+  assert.equal(a('Área física: A área de abrangência da coleta dos dados é o Distrito Federal.'), 'estadual');
+  // sem frase clara, ou nacional e estado ao mesmo tempo: na dúvida
+  assert.equal(a('Os bairros serão informados no prazo legal.'), 'indefinida');
+  assert.equal(a('A área de abrangência da coleta é Brasil.', 'No estado de São Paulo, 22% das entrevistas.'), 'indefinida');
+});
+
+test('automática: pesquisa de um estado só não entra no modelo nacional; abrangência incerta espera aprovação', async () => {
+  const p = new Pesquisas(null);
+  const n = await p.sincronizarAutomaticas(cadastro, [
+    ext('a.com.br', 'BR-05555/2026', null, { flavio: 49, lula: 43 }), ext('b.com.br', 'BR-05555/2026', null, { flavio: 49, lula: 43 }),
+    ext('a.com.br', 'BR-06666/2026', { flavio: 51, lula: 49 }), ext('b.com.br', 'BR-06666/2026', { flavio: 51, lula: 49 }),
+  ]);
+  assert.equal(n, 0);
+  assert.deepEqual(p.pendentes.map((x) => x.registro), ['BR-06666/2026'], 'a estadual nem aparece; a incerta vai para o painel');
+  assert.match(p.pendentes[0].motivo, /nacional/);
 });

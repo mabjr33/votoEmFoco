@@ -6,7 +6,7 @@ import { decodificar } from '../noticias/rss.js';
 
 const MAX_HTML = 3 * 1024 * 1024;
 // Suba quando as regras mudarem: as reportagens recentes são lidas de novo com as regras novas
-export const VERSAO_EXTRATOR = 2;
+export const VERSAO_EXTRATOR = 3;
 
 /** Maiúsculas sem acento, mantendo dígitos, vírgula, ponto e %. */
 export const simplificar = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -50,11 +50,12 @@ const OUTRA_COISA = new RegExp([
   'ESPONTANEA', 'REJEI', 'NAO VOTARIA', 'AVALIA', 'APROVA', 'GOVERNADOR', 'SENADO\\b', 'SENADORES', 'DEPUTAD',
   'ELEITORES DE', 'ELEITORAD[OA] DE', 'ENTRE (OS |AS )?(ELEITOR|MULHER|HOMEN|JOVE|EVANGEL|CATOLIC|QUEM)', 'MULHERES', 'HOMENS',
   'EVANGELIC', 'CATOLIC', 'REGIAO', 'NORDESTE', 'SUDESTE', 'CENTRO-OESTE', 'NO SUL', 'NO NORTE', 'RENDA', 'SALARIO', 'ESCOLARIDADE', 'FAIXA',
+  'ENTREVISTADOS COM', 'ENTRE (OS |AS )?ENTREVISTAD', 'ENSINO', 'GRUPO', 'SEGMENTO', 'ANOS OU MAIS', '\\d+ (A|E) \\d+ ANOS', 'IDOSOS',
   'CADA',
   // expectativa de vitória ("quem vai ganhar"), que não é intenção de voto
   'CHANCES?', 'ACHAM?', 'ACREDITA', 'EXPECTATIVA', 'APONTARAM', 'VAI GANHAR', 'VAI VENCER', 'QUEM VENCE',
   // o 1º turno contado de outro jeito ("avançou ao 2º turno com 47%")
-  'AVANCOU', 'AVANCARAM', 'CHEGOU', 'PASSOU AO', 'FICOU COM', 'LIDERANCA COM', 'DOMINGO',
+  'AVANCOU', 'AVANCARAM', 'CHEGOU', 'PASSOU AO', 'FICOU COM', 'LIDERANCA COM',
 ].map((p) => `\\b${p}`).join('|'));
 const PCT = /(\d{1,2}(?:,\d{1,2})?)\s?(?:%|POR CENTO)/g;
 const num = (s) => Number(String(s).replace(',', '.'));

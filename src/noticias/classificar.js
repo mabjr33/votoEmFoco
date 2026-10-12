@@ -20,7 +20,7 @@ const ESTADOS = [
   ['sp', /\b(SAO PAULO)\b/], ['se', /\b(SERGIPE|SERGIPAN[OA]S?)\b/], ['to', /\b(TOCANTINS|TOCANTINENSES?)\b/],
 ];
 
-const INSTITUTOS = /\b(DATAFOLHA|QUAEST|ATLASINTEL|ATLAS INTEL|IPEC|PARANA PESQUISAS|REAL TIME BIG DATA|VOX BRASIL|VOX POPULI|CNT\/MDA|PODERDATA|IPESPE|FUTURA|GENIAL\/QUAEST|IDEIA)\b/;
+const INSTITUTOS = /\b(DATAFOLHA|QUAEST|ATLASINTEL|ATLAS INTEL|IPEC|PARANA PESQUISAS|REAL TIME BIG DATA|VOX BRASIL|VOX POPULI|CNT\/MDA|PODERDATA|IPESPE|FUTURA|GENIAL\/QUAEST|IDEIA|DATATRENDS|NEXUS|PALVER|VERITA)\b/;
 const FORTE = /\b(ELEICAO|ELEICOES|ELEITORA(L|IS)|ELEITOR(ES|ADO)?|REELEI\w*|(1O|2O|PRIMEIRO|SEGUNDO) TURNO|TSE|TRE-[A-Z]{2}|JUSTICA ELEITORAL|URNAS?|APURACAO|CANDIDAT\w*|INTENCAO DE VOTO|VOTOS? VALIDOS|ABSTENCAO|PRESIDENCIAVE(L|IS)|PRESIDENCIAL)\b/;
 const MEDIO = /\b(CAMPANHAS?|DEBATES?|PESQUISAS?|APOIOS?|APOIA|APOIAR|ATOS?|COMICIOS?|CARREATAS?|MOTOCIATAS?|CAMINHADAS?|AGENDAS?|VOTOS?|PALANQUES?|ALIANCAS?|ADVERSARI[OA]S?|PROPOSTAS?|PLANO DE GOVERNO|SABATINAS?|LIDERA|VANTAGEM|EMPATE|ENTREVISTAS?|PROPAGANDA|DIZ|DIZEM|AFIRMA|PEDE|ACUSA|CRITICA|ATACA|REBATE|RESPONDE|PROMETE|DEFENDE|IRONIZA|COBRA|EVENTO|DISCURSO|CANAL|REDES|VIDEO)\b/;
 // MEDIO só vale junto do nome de um candidato, e vale igual para todos eles.
@@ -82,7 +82,10 @@ export function classificar(item, ctx = prepararContexto()) {
   const registros = [...new Set([...`${item.titulo} ${item.resumo || ''}`.matchAll(REGISTRO)]
     .filter((m) => m[1] === 'BR' || UFS.includes(m[1].toLowerCase())).map((m) => m[0]))];
   const etiquetas = [];
+  // Há dezenas de institutos registrados no TSE: além da lista, vale "nome de finalista + dois percentuais"
+  // ("DataTrends: Flávio tem 50% contra 44% de Lula")
   const pesquisa = INSTITUTOS.test(titulo) || /\bINTENCAO DE VOTO\b/.test(titulo) || registros.length > 0
+    || (temPres && (titulo.match(/%/g) || []).length >= 2 && /\b(CONTRA|X|TURNO|LIDERA|VANTAGEM|EMPATE|TEM|TÊM|TEEM)\b/.test(titulo))
     || (/\bPESQUISAS?\b/.test(titulo) && (temCand || /\b(TURNO|ELEITORA\w*|LIDERA|EMPATE|VANTAGEM|\d+%)\b|\d+(,\d+)?%/.test(titulo)));
   if (pesquisa) etiquetas.push('pesquisa');
   if (/\bDEBATES?\b/.test(titulo) && (temCand || /\b(TURNO|RECORD|BAND|GLOBO|SBT|CNN|PRESIDENCI\w*|GOVERNADOR\w*|CANDIDAT\w*)\b/.test(titulo))) etiquetas.push('debate');

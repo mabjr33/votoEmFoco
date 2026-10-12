@@ -145,7 +145,8 @@ export class Pesquisas extends EventEmitter {
     const conhecidos = this.conhecidos();
     const porRegistro = new Map();
     for (const m of extracoes) {
-      const regs = (m.registros || []).filter((r) => cadastro.get(r));
+      // Pesquisa de um estado só (também registrada como "BR") não conta para o modelo nacional
+      const regs = (m.registros || []).filter((r) => cadastro.get(r) && cadastro.get(r).abrangencia !== 'estadual');
       if (regs.length !== 1 || !(m.validos || m.totais)) continue;
       if (!porRegistro.has(regs[0])) porRegistro.set(regs[0], []);
       porRegistro.get(regs[0]).push(m);
@@ -162,6 +163,7 @@ export class Pesquisas extends EventEmitter {
       const lista = fontes.map((f) => ({ nome: f.fonte, url: f.link, validos: f.validos, totais: f.totais }));
       const entrada = proposta(cadastro.get(registro), fontes);
       let motivo = this.ignoradas.has(registro) ? 'removida no painel; só volta se você aprovar'
+        : cadastro.get(registro).abrangencia !== 'nacional' ? 'o cadastro do TSE não deixa claro se a pesquisa é nacional; confira a área no registro'
         : partilhas.some((x) => Math.abs(x - ref) > TOLERANCIA) ? 'as reportagens trazem números diferentes'
           : fontes.length < 2 ? 'só um veículo publicou os números até agora' : null;
       const { pesquisa, erro } = validarPesquisa(entrada);

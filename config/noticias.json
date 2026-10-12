@@ -10,6 +10,9 @@
     { "id": "gazetadopovo", "nome": "Gazeta do Povo", "site": "gazetadopovo.com.br", "url": "https://www.gazetadopovo.com.br/feed/rss/republica.xml" },
     { "id": "cartacapital", "nome": "CartaCapital", "site": "cartacapital.com.br", "url": "https://www.cartacapital.com.br/politica/feed/" },
     { "id": "oeste", "nome": "Revista Oeste", "site": "revistaoeste.com", "url": "https://revistaoeste.com/politica/feed/" },
-    { "id": "brasildefato", "nome": "Brasil de Fato", "site": "brasildefato.com.br", "url": "https://www.brasildefato.com.br/feed/" }
+    { "id": "brasildefato", "nome": "Brasil de Fato", "site": "brasildefato.com.br", "url": "https://www.brasildefato.com.br/feed/" },
+    { "id": "g1", "nome": "g1", "site": "g1.globo.com", "url": "https://g1.globo.com/rss/g1/politica/" },
+    { "id": "folha", "nome": "Folha de S.Paulo", "site": "folha.uol.com.br", "url": "https://feeds.folha.uol.com.br/poder/rss091.xml" },
+    { "id": "estadao", "nome": "Estadão", "site": "estadao.com.br", "url": "https://www.estadao.com.br/arc/outboundfeeds/feeds/rss/sections/politica/" }
   ]
 }

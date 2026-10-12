@@ -58,6 +58,11 @@ test('classificador: etiquetas e estados', () => {
   assert.ok(p.etiquetas.includes('pesquisa'));
   assert.ok(p.etiquetas.includes('presidente'));
   assert.deepEqual(p.registros, ['BR-02197/2026']);
+  // Instituto fora da lista: finalista + dois percentuais já é pesquisa
+  assert.ok(cl('Instituto Novo: Flávio tem 50% contra 44% de Lula no 2º turno').etiquetas.includes('pesquisa'));
+  assert.ok(cl('DataTrends: Flávio tem 50% contra 44% de Lula no 2º turno').etiquetas.includes('pesquisa'));
+  const eco = cl('Lula diz que inflação caiu para 4% e desemprego para 6%');
+  assert.ok(eco && !eco.etiquetas.includes('pesquisa'), 'percentuais que não são de pesquisa');
   const d = cl('Record confirma debate entre Lula e Flávio no domingo');
   assert.ok(d.etiquetas.includes('debate'));
   const j = cl('Corregedor do TSE manda reativar canal');

@@ -9,7 +9,7 @@ Visual claro e limpo, em quatro abas: Resultado, Previsões, Notícias e Simulad
 - **Resultado**: placar no topo, com 1º e 2º turno e, durante a apuração, os modos Oficial, Projeção e Simulação. Abaixo vêm o mapa do Brasil e um painel ao lado. Clique em um estado, ou escolha na lista, para ver Presidente, Governador e Senado ali. Durante a contagem, o quadro **Ainda dá para virar?** mostra de quanto dos votos que faltam quem está atrás precisa, comparado com a estimativa; quando a diferença passa do número de eleitores das seções que faltam (dado do TSE), diz que não dá mais. Mais abaixo ficam a divisão por região, **como a apuração andou** (percentuais ou diferença em votos, com o horário de cada totalização e o botão **Rever a apuração**) e o registro do que aconteceu.
 - Abas de disputa: **Presidente**, **Governadores** (mapa por partido, 2º turno ao vivo, lista de estados), **Senado** (bancada eleita) e **Exterior** (mapa-múndi com as cidades e lista por país).
 - **Previsões**: modelos para o 2º turno presidencial feitos com o histórico de 1989 a 2026 (veja abaixo).
-- **Notícias**: manchetes sobre a eleição de 8 veículos, lidas automaticamente, com filtros, próximas datas (debates e prazos) e pesquisas nas manchetes.
+- **Notícias**: manchetes sobre a eleição de 11 veículos, lidas automaticamente, com filtros, próximas datas (debates e prazos) e pesquisas nas manchetes.
 - **Simulador**: "Quem será eleito?", em votos válidos.
 - **Modo telão** (`#telao`, link ao lado das disputas): para TV ou projetor. Números grandes, só votos oficiais já totalizados, passa sozinho pelo presidente e pelos 2º turnos de governador a cada 12 s (setas do teclado trocam), relógio de Brasília e botão de tela cheia. No modo de teste, o aviso de 2º turno simulado continua na tela.
 
@@ -145,8 +145,11 @@ O servidor lê os feeds RSS dos veículos a cada 10 minutos (`config/noticias.js
 | CartaCapital | política |
 | Revista Oeste | política |
 | Brasil de Fato | geral |
+| g1 | política |
+| Folha de S.Paulo | Poder |
+| Estadão | política |
 
-Todos foram conferidos em 11/10/2026. A lista mistura veículos de linhas editoriais diferentes. G1, Folha, Estadão, Veja e UOL ficaram de fora porque não consegui acessar os feeds deles para conferir; para incluir, acrescente `{ id, nome, site, url }` em `config/noticias.json`.
+Os 8 primeiros foram conferidos em 11/10/2026; g1, Folha e Estadão, em 12/10/2026 (entraram porque costumam publicar primeiro as pesquisas de Quaest, Datafolha e afins). A lista mistura veículos de linhas editoriais diferentes. O feed do Poder360 só traz as 10 últimas notícias de todos os assuntos; o da seção de eleições está parado desde 2024. CNN Brasil (404) e UOL (feed genérico) ficaram de fora. Para incluir, acrescente `{ id, nome, site, url }` em `config/noticias.json`.
 
 **Como a seleção funciona** (`src/noticias/classificar.js`): só pelo título, por palavras-chave. Entra quem cita eleição, turno, TSE ou TRE, urna, candidatos, institutos de pesquisa e afins, ou o nome de um finalista junto de um termo de campanha (apoio, debate, ato, diz, pede…). A regra é a mesma para todos os candidatos. Os nomes vêm do próprio TSE: finalistas de presidente e dos 2º turnos de governador. Colunas, artigos e editoriais ficam de fora pelo endereço ou pela categoria. As etiquetas são Pesquisa, Debate, Justiça Eleitoral, Presidente, Governadores e estado. O número de registro da pesquisa (ex.: BR-02949/2026) é destacado quando aparece. É automático e imperfeito: pode deixar passar algo ou incluir algo fora do tema.
 

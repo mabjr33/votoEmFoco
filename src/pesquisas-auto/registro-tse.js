@@ -12,6 +12,8 @@ import path from 'node:path';
 import { lerLimitado } from '../noticias/coletor.js';
 
 const MAX_ZIP = 40 * 1024 * 1024;
+// Suba quando os campos guardados mudarem: o arquivo antigo é descartado e o cadastro é baixado de novo
+const FORMATO = 2;
 const MAX_CSV = 80 * 1024 * 1024;
 
 /** Lê um arquivo de dentro de um .zip (sem dependências). filtro: (nome) => boolean. */
@@ -64,7 +66,7 @@ const MARCAS = [
   [/DATAFOLHA/, 'Datafolha'], [/ATLAS ?INTEL/, 'AtlasIntel'], [/PODER ?DATA/, 'PoderData'], [/QUAEST/, 'Quaest'],
   [/\bIPEC\b/, 'Ipec'], [/VOX BRASIL/, 'Vox Brasil'], [/VOX POPULI/, 'Vox Populi'], [/PARANA PESQUISAS/, 'Paraná Pesquisas'],
   [/REAL TIME BIG DATA/, 'Real Time Big Data'], [/\bMDA\b/, 'MDA'], [/PALVER/, 'Palver'], [/NEXUS/, 'Nexus'], [/IPESPE/, 'Ipespe'],
-  [/FUTURA/, 'Futura'], [/\bIDEIA\b/, 'Ideia'],
+  [/FUTURA/, 'Futura'], [/\bIDEIA\b/, 'Ideia'], [/DATA ?TRENDS/, 'DataTrends'],
 ];
 const semAcento = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 const MINUSCULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
@@ -79,6 +81,31 @@ export function nomeInstituto(fantasia, empresa) {
 
 const dia = (s) => (/^\d{4}-\d{2}-\d{2}/.test(s || '') ? s.slice(0, 10) : null);
 
+// Pesquisa de presidente feita num só estado também é registrada como "BR". A abrangência só aparece
+// no texto do registro (área física e plano amostral). Estadual quando a área ou o universo citam um
+// estado ou município (vale mais que um "país" solto no texto); nacional só com frase clara; o resto
+// fica "indefinida" e nunca entra sozinha no modelo.
+const UF_NOMES = 'ACRE|ALAGOAS|AMAPA|AMAZONAS|BAHIA|CEARA|DISTRITO FEDERAL|ESPIRITO SANTO|GOIAS|MARANHAO|MATO GROSSO( DO SUL)?|MINAS GERAIS|PARA|PARAIBA|PARANA|PERNAMBUCO|PIAUI|RIO DE JANEIRO|RIO GRANDE DO (NORTE|SUL)|RONDONIA|RORAIMA|SANTA CATARINA|SAO PAULO|SERGIPE|TOCANTINS';
+const ESTADUAL = new RegExp([
+  'ABRANGENCIA [A-Z ]{0,30}\\bE (O |A )?(TERRITORIO D[OE] |TODO O )?(ESTADO|DISTRITO FEDERAL|MUNICIPIO|CIDADE)\\b',
+  'ABRANGENCIA [A-Z ]{0,30}\\bE (ESTADUAL|MUNICIPAL)\\b', 'RESTRIT[AO] AO (ESTADO|MUNICIPIO|DISTRITO FEDERAL)',
+  'ABRANGE A AREA FISICA DE TODO O ESTADO', 'MUNICIPIOS DO ESTADO D', 'ELEITORADO D[OA] (ESTADO|MUNICIPIO|CIDADE)\\b',
+  'UNIVERSO [A-Z0-9 ]{0,80}\\bD[OA] (ESTADO|DISTRITO FEDERAL|MUNICIPIO)\\b', `ELEITORES D[OAE] (${UF_NOMES})\\b`,
+].join('|'));
+// Um estado citado pelo nome: sozinho, é pesquisa estadual; junto de frase nacional, fica na dúvida
+// (sigla sem SE, que confunde com a palavra "se")
+const ESTADO_CITADO = new RegExp(`\\bESTADO D[OAE] (${UF_NOMES})\\b|\\b(D[OA]|N[OA]) (AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|TO)\\b`);
+// Só frases que descrevem a amostra. "População brasileira" fica de fora: aparece em pesquisa
+// estadual quando o texto cita dados do IBGE.
+const NACIONAL = /ABRANGENCIA [A-Z ]{0,30}\bE (O |A )?(NACIONAL|BRASIL|TODO O TERRITORIO DO BRASIL|TODO O TERRITORIO NACIONAL|TODO O PAIS)\b|AREA FISICA [A-Z ]{0,30}\bE O BRASIL\b|ELEITORADO (BRASILEIRO|DE BRASIL|DO BRASIL)\b|\b27 (UNIDADES DA FEDERACAO|UFS|ESTADOS)\b|BRASILEIROS A PARTIR DOS 16|CINCO GRANDES REGIOES|5 CINCO REGIOES DO BRASIL/;
+export function abrangenciaDe(o) {
+  const t = semAcento(`${o.DS_DADO_MUNICIPIO || ''} ${o.DS_PLANO_AMOSTRAL || ''}`).replace(/[^A-Z0-9]+/g, ' ');
+  if (ESTADUAL.test(t)) return 'estadual';
+  const estado = ESTADO_CITADO.test(t);
+  if (NACIONAL.test(t)) return estado ? 'indefinida' : 'nacional';
+  return estado ? 'estadual' : 'indefinida';
+}
+
 /** Linha do CSV -> pesquisa presidencial nacional, ou null. */
 export function pesquisaDoCadastro(o) {
   if (o.SG_UF !== 'BR' || !/presidente/i.test(o.DS_CARGO || '')) return null;
@@ -91,6 +118,7 @@ export function pesquisaDoCadastro(o) {
     inicio: dia(o.DT_INICIO_PESQUISA), fim: dia(o.DT_FIM_PESQUISA), divulgacao: dia(o.DT_DIVULGACAO),
     amostra: Number(o.QT_ENTREVISTADO) || null,
     propria: o.ST_PESQUISA_PROPRIA === 'S',
+    abrangencia: abrangenciaDe(o),
   };
 }
 
@@ -112,6 +140,7 @@ export class RegistroPesquisas {
     if (!this.arquivo) return;
     try {
       const j = JSON.parse(await readFile(this.arquivo, 'utf8'));
+      if (j.formato !== FORMATO) return;
       this.itens = new Map((j.itens || []).map((p) => [p.registro, p]));
       Object.assign(this, { etag: j.etag || null, modificado: j.modificado || null, atualizadoEm: j.atualizadoEm || null });
     } catch { /* primeiro uso */ }
@@ -121,7 +150,7 @@ export class RegistroPesquisas {
     if (!this.arquivo) return;
     await mkdir(path.dirname(this.arquivo), { recursive: true });
     const tmp = `${this.arquivo}.tmp`;
-    await writeFile(tmp, JSON.stringify({ etag: this.etag, modificado: this.modificado, atualizadoEm: this.atualizadoEm, itens: [...this.itens.values()] }));
+    await writeFile(tmp, JSON.stringify({ formato: FORMATO, etag: this.etag, modificado: this.modificado, atualizadoEm: this.atualizadoEm, itens: [...this.itens.values()] }));
     await rename(tmp, this.arquivo);
   }
 
@@ -165,9 +194,9 @@ export class RegistroPesquisas {
 
   get(registro) { return this.itens.get(registro) || null; }
 
-  /** Pesquisas com divulgação a partir de hoje (AAAA-MM-DD), em ordem de data. */
+  /** Pesquisas nacionais com divulgação a partir de hoje (AAAA-MM-DD), em ordem de data. */
   proximas(hoje) {
-    return [...this.itens.values()].filter((p) => p.divulgacao && p.divulgacao >= hoje)
+    return [...this.itens.values()].filter((p) => p.abrangencia === 'nacional' && p.divulgacao && p.divulgacao >= hoje)
       .sort((a, b) => a.divulgacao.localeCompare(b.divulgacao) || a.instituto.localeCompare(b.instituto));
   }
 
