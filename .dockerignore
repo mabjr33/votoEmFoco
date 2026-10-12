@@ -1,5 +1,7 @@
 .git
-data
+# só o 1º turno baixado do TSE entra na imagem (usado pelo MODO=teste)
+data/*
+!data/tse-1turno
 node_modules
 test
 deploy

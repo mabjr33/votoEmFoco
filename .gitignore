@@ -1,3 +1,6 @@
 node_modules/
-data/
+# dados gerados ficam fora; o 1º turno baixado do TSE (npm run baixar) vai junto:
+# o modo de teste publicado usa esses arquivos sem precisar consultar o TSE de novo
+data/*
+!data/tse-1turno/
 *.log

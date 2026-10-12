@@ -124,6 +124,30 @@ test('prévia ao compartilhar: PUBLIC_URL vira URL absoluta; valor estranho é i
   }
 });
 
+test('modo de teste: prévia do link diz que é simulado, sem imagem, e a página não é indexada', async () => {
+  const srv = createApp({ publicUrl: 'https://exemplo.com.br', modoTeste: true }, coletorFalso());
+  const base = await ouvir(srv);
+  try {
+    const r = await fetch(`${base}/`);
+    const html = await r.text();
+    assert.equal(r.headers.get('x-robots-tag'), 'noindex, nofollow');
+    assert.match(html, /<meta name="robots" content="noindex, nofollow">/);
+    assert.match(html, /<meta property="og:title" content="TESTE · 2º turno simulado, não é resultado">/);
+    assert.match(html, /<meta property="og:description" content="Site em teste:[^"]*não é resultado nem previsão\.">/);
+    assert.ok(!html.includes('og:image'), 'sem a imagem de apuração em tempo real');
+    assert.match(html, /<title>TESTE/);
+  } finally { srv.close(); }
+  // Fora do modo de teste, nada disso
+  const prod = createApp({ publicUrl: 'https://exemplo.com.br' }, coletorFalso());
+  const b2 = await ouvir(prod);
+  try {
+    const r = await fetch(`${b2}/`);
+    const html = await r.text();
+    assert.equal(r.headers.get('x-robots-tag'), null);
+    assert.ok(html.includes('og:image') && !html.includes('noindex'));
+  } finally { prod.close(); }
+});
+
 test('ao vivo: avisos de um mesmo ciclo saem juntos, com a lista enxuta; recarga sai na hora e completa', async () => {
   const col = coletorFalso();
   col.raceList = () => [{ id: 'pres', label: 'Presidente', cargo: 1, scope: 'br', temBase: true, aoVivo: true, pst: 12.5, version: 7 }];

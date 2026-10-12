@@ -132,6 +132,25 @@ data: ${JSON.stringify(ev)}
     enviar(req, res, c, `public, max-age=${maxAge}`);
   }
 
+  /**
+   * Página inicial: endereço público nas tags de compartilhamento. No modo de teste, a prévia do
+   * link (WhatsApp, redes) diz que o 2º turno é simulado, sem a imagem de "apuração em tempo real",
+   * e a página pede para não ser indexada: um print do teste não pode passar por resultado.
+   */
+  function paginaInicial(html) {
+    let h = html.replaceAll('{{URL}}', urlPublica);
+    if (!cfg.modoTeste) return h;
+    const aviso = 'Site em teste: o 1º turno é o real do TSE; o 2º turno é uma simulação sorteada, não é resultado nem previsão.';
+    h = h.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  <meta name="robots" content="noindex, nofollow">')
+      .replace(/<title>[^<]*<\/title>/, '<title>TESTE · 2º turno simulado</title>')
+      .replace(/(<meta name="description" content=")[^"]*/, `$1${aviso}`)
+      .replace(/(<meta property="og:title" content=")[^"]*/, '$1TESTE · 2º turno simulado, não é resultado')
+      .replace(/(<meta property="og:description" content=")[^"]*/, `$1${aviso}`)
+      .replace(/\s*<meta property="og:image[^>]*>/g, '')
+      .replace('content="summary_large_image"', 'content="summary"');
+    return h;
+  }
+
   async function serveStatic(req, res, urlPath) {
     for (const [prefix, dir] of Object.entries(STATIC_ROOTS)) {
       if (!urlPath.startsWith(prefix)) continue;
@@ -147,7 +166,7 @@ data: ${JSON.stringify(ev)}
         if (!e || e.mtimeMs !== st.mtimeMs || e.size !== st.size) {
           let buf = await readFile(file);
           // Página inicial: endereço público nas tags de compartilhamento (precisam de URL absoluta)
-          if (path.basename(file) === 'index.html') buf = Buffer.from(buf.toString('utf8').replaceAll('{{URL}}', urlPublica));
+          if (path.basename(file) === 'index.html') buf = Buffer.from(paginaInicial(buf.toString('utf8')));
           e = { mtimeMs: st.mtimeMs, size: st.size, corpo: corpo(buf, MIME[path.extname(file)] || 'application/octet-stream') };
           staticCache.set(file, e);
         }
@@ -163,6 +182,7 @@ data: ${JSON.stringify(ev)}
   return http.createServer(async (req, res) => {
     try {
       for (const [k, v] of Object.entries(SEGURANCA)) res.setHeader(k, v);
+      if (cfg.modoTeste) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       // HSTS só faz sentido atrás de HTTPS (o proxy da hospedagem informa em X-Forwarded-Proto)
       if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
       const url = new URL(req.url, 'http://x');

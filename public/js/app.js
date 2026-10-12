@@ -154,7 +154,7 @@ const hora = (s) => { const m = String(s || '').match(/(\d{2}):(\d{2})/); return
 
 // ---------- topo ----------
 function renderTopo() {
-  document.title = NOME_SITE;
+  document.title = S.status?.modoTeste ? `TESTE · ${NOME_SITE}` : NOME_SITE;
   $('#nome-site').textContent = NOME_SITE;
   const vista = { simulador: 'simulador', previsoes: 'previsoes', noticias: 'noticias', telao: 'telao' }[S.rota.aba] || 'resultado';
   document.body.classList.toggle('modo-telao', vista === 'telao');

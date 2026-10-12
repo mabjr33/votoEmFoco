@@ -203,7 +203,8 @@ A senha vai no cabeçalho `Authorization` (sem cookie) e fica só na aba do nave
 
 O servidor precisa ficar ligado o tempo todo (consulta o TSE a cada 15 s), então serviços só de funções, como o Vercel, não servem sem reescrever.
 
-- **Render:** `render.yaml` pronto ("New > Blueprint"). O plano gratuito dorme após 15 min sem acesso: use um monitor externo (ex.: UptimeRobot a cada 10 min) e lembre que o disco é apagado a cada reinício (o 1º turno é baixado de novo).
+- **Render:** `render.yaml` pronto ("New > Blueprint"). O plano gratuito dorme após 15 min sem acesso: use um monitor externo (ex.: UptimeRobot a cada 10 min) e lembre que o disco é apagado a cada reinício.
+- **`MODO=teste`** (padrão no `render.yaml`): sobe o modo de teste com o 1º turno real (`data/tse-1turno`, que vai no repositório e na imagem) e o 2º turno simulado em `MOCK_DURATION` segundos, para mostrar o site antes do dia 25. Os avisos de simulação ficam na tela, a prévia do link diz "TESTE · 2º turno simulado, não é resultado" e a página pede para não ser indexada. Cada reinício (inclusive ao acordar) sorteia uma apuração nova. **No dia da eleição, apague `MODO`** para usar o TSE ao vivo.
 - **Oracle Cloud Always Free ou VPS:** `deploy/oracle.sh` instala Docker e Caddy (HTTPS automático) numa VM Ubuntu; precisa de um domínio apontando para a VM.
 - **Antes de tudo:** rode `npm run baixar` no servidor para confirmar que ele acessa o TSE. Na noite da eleição, um CDN (ex.: Cloudflare) na frente de `/api/*` absorve o pico.
 

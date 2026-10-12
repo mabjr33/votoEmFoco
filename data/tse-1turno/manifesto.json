@@ -1,0 +1,222 @@
+{
+  "baixadoEm": "2026-10-12T00:05:55.737Z",
+  "origem": "https://resultados.tse.jus.br/oficial",
+  "ambiente": "oficial",
+  "ciclo": "ele2026",
+  "eleicoes": {
+    "federal1": "6257",
+    "estadual1": "6259",
+    "federal2": "6258",
+    "estadual2": "6260"
+  },
+  "configTse": "10/10/2026 17:29:51",
+  "arquivos": 271,
+  "fotos": 168,
+  "resumo": {
+    "presidente": [
+      {
+        "n": "22",
+        "nome": "FLAVIO BOLSONARO",
+        "partido": "PL",
+        "votos": 56104503,
+        "pct": 47.027772356,
+        "situacao": "2º turno"
+      },
+      {
+        "n": "13",
+        "nome": "LULA",
+        "partido": "PT",
+        "votos": 53879538,
+        "pct": 45.162767911,
+        "situacao": "2º turno"
+      },
+      {
+        "n": "70",
+        "nome": "ESCRITOR AUGUSTO CURY",
+        "partido": "AVANTE",
+        "votos": 3448569,
+        "pct": 2.890650647,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "14",
+        "nome": "RENAN SANTOS",
+        "partido": "MISSÃO",
+        "votos": 2675887,
+        "pct": 2.242975126,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "55",
+        "nome": "RONALDO CAIADO",
+        "partido": "PSD",
+        "votos": 2605148,
+        "pct": 2.183680463,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "30",
+        "nome": "ZEMA",
+        "partido": "NOVO",
+        "votos": 326488,
+        "pct": 0.273667933,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "80",
+        "nome": "SAMARA",
+        "partido": "UP",
+        "votos": 122911,
+        "pct": 0.103026143,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "16",
+        "nome": "HERTZ DIAS",
+        "partido": "PSTU",
+        "votos": 43103,
+        "pct": 0.036129686,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "27",
+        "nome": "CLARIANA BARAO",
+        "partido": "DC",
+        "votos": 40043,
+        "pct": 0.033564741,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "21",
+        "nome": "EDMILSON COSTA",
+        "partido": "PCB",
+        "votos": 22693,
+        "pct": 0.019021668,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "35",
+        "nome": "VETERINÁRIO WILSON GRASSI",
+        "partido": "DEMOCRATA",
+        "votos": 16881,
+        "pct": 0.014149948,
+        "situacao": "Não eleito"
+      },
+      {
+        "n": "29",
+        "nome": "RUI COSTA PIMENTA",
+        "partido": "PCO",
+        "votos": 15024,
+        "pct": 0.012593379,
+        "situacao": "Não eleito"
+      }
+    ],
+    "finalistas": [
+      "FLAVIO BOLSONARO (PL)",
+      "LULA (PT)"
+    ],
+    "totalizadoEm": "05/10/2026 12:51:05",
+    "secoesPct": 100,
+    "eleitorado": 158745502,
+    "comparecimento": 125275835,
+    "abstencaoPct": 21.083641906,
+    "estadosPresidente": 28,
+    "cidadesExterior": 186,
+    "governadores2T": [
+      {
+        "uf": "ac",
+        "candidatos": [
+          {
+            "nome": "MAILZA ASSIS",
+            "partido": "PP",
+            "pct": 49.758101386
+          },
+          {
+            "nome": "ALAN RICK",
+            "partido": "REPUBLICANOS",
+            "pct": 32.266568406
+          }
+        ]
+      },
+      {
+        "uf": "am",
+        "candidatos": [
+          {
+            "nome": "OMAR AZIZ",
+            "partido": "PSD",
+            "pct": 40.62992734
+          },
+          {
+            "nome": "PROFESSORA MARIA DO CARMO",
+            "partido": "PL",
+            "pct": 24.485457182
+          }
+        ]
+      },
+      {
+        "uf": "df",
+        "candidatos": [
+          {
+            "nome": "CELINA LEÃO",
+            "partido": "PP",
+            "pct": 49.93415947
+          },
+          {
+            "nome": "LEANDRO GRASS",
+            "partido": "PT",
+            "pct": 34.473581223
+          }
+        ]
+      },
+      {
+        "uf": "es",
+        "candidatos": [
+          {
+            "nome": "LORENZO PAZOLINI",
+            "partido": "REPUBLICANOS",
+            "pct": 49.647163984
+          },
+          {
+            "nome": "RICARDO FERRAÇO",
+            "partido": "MDB",
+            "pct": 34.059600288
+          }
+        ]
+      },
+      {
+        "uf": "rn",
+        "candidatos": [
+          {
+            "nome": "ALLYSON",
+            "partido": "UNIÃO",
+            "pct": 36.936669841
+          },
+          {
+            "nome": "CADU DE LULA",
+            "partido": "PT",
+            "pct": 36.156016003
+          }
+        ]
+      },
+      {
+        "uf": "to",
+        "candidatos": [
+          {
+            "nome": "PROFESSORA DORINHA",
+            "partido": "UNIÃO",
+            "pct": 45.515767196
+          },
+          {
+            "nome": "VICENTINHO JÚNIOR",
+            "partido": "PSDB",
+            "pct": 43.9353357
+          }
+        ]
+      }
+    ],
+    "governadoresEleitos1T": 21,
+    "senadoresEleitos": 54
+  },
+  "avisos": [],
+  "falhas": []
+}
