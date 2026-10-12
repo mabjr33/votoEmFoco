@@ -20,3 +20,9 @@ body.admin code { background: var(--suave); padding: 1px 6px; border-radius: 4px
 .grade-form legend { font-size: 14px; padding: 0 4px; }
 .grade-form .largo { grid-column: 1 / -1; }
 @media (max-width: 600px) { .grade-form { grid-template-columns: 1fr; } }
+/* acesso: entrar, criar/redefinir, trocar senha */
+.form-acesso { display: grid; gap: 12px; max-width: 420px; }
+.form-acesso label { display: grid; gap: 4px; font-size: 14px; color: var(--tinta-2); }
+.form-acesso .nota { margin: 0; }
+.linha-env { background: var(--sup); border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; font-size: 13px; white-space: pre-wrap; word-break: break-all; user-select: all; }
+#aviso-acesso:empty { display: none; }

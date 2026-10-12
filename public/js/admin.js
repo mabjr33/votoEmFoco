@@ -1,4 +1,5 @@
-// Painel: saúde do coletor e aprovação de pesquisas. A senha fica só no sessionStorage desta aba.
+// Painel: acesso com usuário e senha (criados pelo dono do site), saúde do coletor e aprovação de pesquisas.
+// Depois de entrar, só o código da sessão fica no sessionStorage desta aba (nunca a senha).
 import { ELEICOES } from '/shared/historico.js';
 import { esc, fmtInt, fmtPct } from './util.js';
 
@@ -8,24 +9,46 @@ const TZ = 'America/Sao_Paulo';
 const horaDe = (iso) => (iso ? new Date(iso).toLocaleString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '–');
 const duracao = (ms) => (ms == null ? 'nunca' : ms < 60_000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60_000)} min`);
 
-let senha = null;
-try { senha = sessionStorage.getItem('painel'); } catch { /* sem storage: pede a senha de novo */ }
+let sessao = null;
+try { sessao = sessionStorage.getItem('painel-sessao'); } catch { /* sem storage: entra de novo */ }
+const guardarSessao = (s) => { sessao = s; try { if (s) sessionStorage.setItem('painel-sessao', s); else sessionStorage.removeItem('painel-sessao'); } catch {} };
 
 async function api(caminho, opcoes = {}) {
-  const r = await fetch(caminho, { ...opcoes, cache: 'no-store', headers: { ...(opcoes.headers || {}), Authorization: `Bearer ${senha}` } });
-  if (r.status === 401) { sair('Senha inválida.'); throw new Error('401'); }
-  if (r.status === 404 && caminho === '/api/admin/saude') { sair('Painel desligado: defina ADMIN_TOKEN (16+ caracteres) no servidor.'); throw new Error('404'); }
+  const headers = { ...(opcoes.headers || {}) };
+  if (sessao) headers.Authorization = `Bearer ${sessao}`;
+  const r = await fetch(caminho, { ...opcoes, cache: 'no-store', headers });
   const corpo = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(corpo.erro || `HTTP ${r.status}`), { corpo });
+  if (r.status === 401 && sessao && !/\/(entrar|criar|senha)$/.test(caminho)) { mostrarAcesso('Sessão expirada. Entre de novo.'); throw new Error('401'); }
+  if (!r.ok) throw Object.assign(new Error(corpo.erro || (r.status === 404 ? 'Painel desligado: defina ADMIN_TOKEN (16+ caracteres) no servidor.' : `HTTP ${r.status}`)), { status: r.status, corpo });
   return corpo;
 }
+const postar = (caminho, dados) => api(caminho, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dados) });
 
-function sair(msg = '') {
-  senha = null;
-  try { sessionStorage.removeItem('painel'); } catch {}
-  $('#conteudo').hidden = true;
-  $('#entrar').hidden = false;
-  $('#erro-entrar').textContent = msg;
+/** Mostra só uma das telas: entrar, criar (ou redefinir), guardar a variável, ou o painel. */
+function tela(qual) {
+  for (const id of ['entrar', 'criar', 'guardar', 'conteudo']) $(`#${id}`).hidden = id !== qual;
+}
+let estado = { configurado: false, podeCriar: false };
+async function mostrarAcesso(msg = '') {
+  guardarSessao(null);
+  $('#aviso-acesso').textContent = msg;
+  try { estado = await api('/api/admin/estado'); } catch (err) { tela(null); $('#aviso-acesso').textContent = err.message; return; }
+  if (estado.configurado) return tela('entrar');
+  modoCriar(false);
+}
+function modoCriar(redefinir) {
+  $('#titulo-criar').textContent = redefinir ? 'Redefinir acesso' : 'Criar acesso';
+  $('#intro-criar').innerHTML = redefinir
+    ? 'Esqueceu a senha? Com o <b>código de instalação</b> (o valor de <code>ADMIN_TOKEN</code>, no Render em Environment) você define um usuário e uma senha novos. Todas as sessões abertas são encerradas.'
+    : 'Ainda não há acesso ao painel. Escolha seu usuário e sua senha. Para provar que você administra o servidor, informe o <b>código de instalação</b>: o valor de <code>ADMIN_TOKEN</code> (no Render, em Environment).';
+  $('#voltar-entrar').hidden = !redefinir;
+  if (!estado.podeCriar) $('#aviso-acesso').textContent = 'Este servidor não tem ADMIN_TOKEN (código de instalação) definido: não dá para criar ou redefinir o acesso por aqui.';
+  tela('criar');
+}
+function mostrarVariavel(linha, depois) {
+  $('#linha-env').textContent = linha || '';
+  $('#guardar').dataset.depois = depois;
+  tela('guardar');
 }
 
 const cartao = (r, v, ruim = false) => `<div class="cartao ${ruim ? 'ruim' : ''}"><div class="r">${esc(r)}</div><div class="v">${v}</div></div>`;
@@ -81,9 +104,17 @@ let pendentes = new Map();
 const parTexto = (f) => [f.validos && `válidos ${fmtPct(f.validos.flavio, 1)} a ${fmtPct(f.validos.lula, 1)}`, f.totais && `totais ${fmtPct(f.totais.flavio, 1)} a ${fmtPct(f.totais.lula, 1)}`].filter(Boolean).join('; ');
 
 async function carregar() {
-  $('#entrar').hidden = true;
-  $('#conteudo').hidden = false;
+  tela('conteudo');
+  $('#aviso-acesso').textContent = '';
+  const conta = await api('/api/admin/conta');
+  $('#conta-info').textContent = `Você entrou como "${conta.usuario}". ${conta.origem === 'variavel' ? 'O acesso está guardado na variável ADMIN_LOGIN do servidor.' : 'O acesso está salvo no disco deste servidor; para não perdê-lo num reinício, guarde a variável ADMIN_LOGIN.'}`;
   await Promise.all([atualizarSaude(), atualizarPesquisas()]);
+}
+async function iniciar() {
+  if (sessao) {
+    try { return await carregar(); } catch { /* sessão vencida: cai na tela de acesso */ }
+  }
+  await mostrarAcesso();
 }
 
 $('#rot-a').textContent = $('#rot-va').textContent = E26.lider.nome;
@@ -91,12 +122,55 @@ $('#rot-b').textContent = $('#rot-vb').textContent = E26.segundo.nome;
 
 $('#form-entrar').addEventListener('submit', async (e) => {
   e.preventDefault();
-  senha = $('#senha').value;
-  try { sessionStorage.setItem('painel', senha); } catch {}
-  $('#senha').value = '';
-  carregar().catch(() => {});
+  const f = e.target;
+  $('#aviso-acesso').textContent = '';
+  try {
+    const r = await postar('/api/admin/entrar', { usuario: f.usuario.value, senha: f.senha.value });
+    f.senha.value = '';
+    guardarSessao(r.sessao);
+    await carregar();
+  } catch (err) { $('#aviso-acesso').textContent = err.message; f.senha.value = ''; }
 });
-$('#sair').addEventListener('click', () => sair());
+
+$('#form-criar').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $('#aviso-acesso').textContent = '';
+  if (f.senha.value !== f.senha2.value) { $('#aviso-acesso').textContent = 'As duas senhas não são iguais.'; return; }
+  try {
+    const r = await postar('/api/admin/criar', { codigo: f.codigo.value, usuario: f.usuario.value, senha: f.senha.value });
+    f.reset();
+    guardarSessao(r.sessao);
+    mostrarVariavel(r.linhaVariavel, 'painel');
+  } catch (err) { $('#aviso-acesso').textContent = err.message; }
+});
+
+$('#form-senha').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  $('#erro-senha').textContent = '';
+  if (f.novaSenha.value !== f.novaSenha2.value) { $('#erro-senha').textContent = 'As duas senhas novas não são iguais.'; return; }
+  try {
+    const r = await postar('/api/admin/senha', { senhaAtual: f.senhaAtual.value, novaSenha: f.novaSenha.value });
+    f.reset();
+    guardarSessao(r.sessao);
+    mostrarVariavel(r.linhaVariavel, 'painel');
+  } catch (err) { $('#erro-senha').textContent = err.message; }
+});
+
+$('#ir-redefinir').addEventListener('click', () => { $('#aviso-acesso').textContent = ''; modoCriar(true); });
+$('#voltar-entrar').addEventListener('click', () => { $('#aviso-acesso').textContent = ''; tela('entrar'); });
+$('#continuar').addEventListener('click', () => carregar().catch((err) => { $('#aviso-acesso').textContent = err.message; }));
+$('#copiar-env').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText($('#linha-env').textContent); e.target.textContent = 'Copiado'; } catch { e.target.textContent = 'Selecione e copie o texto acima'; }
+});
+$('#ver-env').addEventListener('click', async () => {
+  try { const c = await api('/api/admin/conta'); mostrarVariavel(c.linhaVariavel, 'painel'); } catch (err) { $('#erro-senha').textContent = err.message; }
+});
+$('#sair').addEventListener('click', async () => {
+  await postar('/api/admin/sair', {}).catch(() => {});
+  mostrarAcesso('Você saiu.');
+});
 
 $('#form-pesquisa').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -139,5 +213,5 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-if (senha) carregar().catch(() => {});
-setInterval(() => { if (senha) atualizarSaude().catch(() => {}); }, 10_000);
+iniciar();
+setInterval(() => { if (sessao && !$('#conteudo').hidden) atualizarSaude().catch(() => {}); }, 10_000);

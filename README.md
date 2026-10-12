@@ -65,7 +65,8 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data eleicoes-ao-vivo
 | `TSE_AMBIENTE` | `oficial` | `oficial` ou o ambiente de simulado do TSE |
 | `DATA_DIR` | `./data` | Cache em disco |
 | `MAX_SSE` | 5000 | Conexões ao vivo simultâneas (acima disso, a página consulta a cada 30 s) |
-| `ADMIN_TOKEN` | (vazio) | Senha do painel `/admin.html` (16+ caracteres). Sem ela, o painel não existe |
+| `ADMIN_TOKEN` | (vazio) | Código de instalação do painel `/admin.html` (16+ caracteres): pedido para criar ou redefinir o acesso. Não é a senha |
+| `ADMIN_LOGIN` | (vazio) | Usuário e hash da senha do painel (o painel gera a linha). Mantém o acesso quando o disco é apagado |
 | `PUBLIC_URL` | (vazio) | Endereço público, ex.: `https://seudominio.com.br` (prévia ao compartilhar) |
 | `TRUST_PROXY` | 0 | `1` atrás de proxy/CDN: usa o IP de `X-Forwarded-For` no limite de tentativas do painel |
 | `PESQUISAS_AUTO` | 1 | `0` desliga a entrada automática de pesquisas (cadastro do TSE + reportagens) |
@@ -190,7 +191,15 @@ As cidades do exterior só são varridas quando o total do exterior muda, no má
 
 ## Painel (saúde e pesquisas)
 
-Com `ADMIN_TOKEN` definido, `/admin.html` mostra:
+`/admin.html` tem **usuário e senha criados por você**. Não existe conta padrão (nada de admin/admin).
+
+1. **Primeiro acesso:** a página pede o **código de instalação** (o valor de `ADMIN_TOKEN`, 16+ caracteres; no Render, em Environment), o usuário e a senha. O código prova que quem cria o acesso administra o servidor; ele não serve para entrar no painel.
+2. **Senha:** 10+ caracteres, sem conter o usuário e sem ser senha comum. Guardada só como hash scrypt com sal (`data/admin-acesso.json`), nunca em texto.
+3. **Guardar no servidor:** depois de criar (ou trocar a senha), o painel mostra a linha `ADMIN_LOGIN=usuario:hash`. Cole-a em Environment no Render: o plano gratuito apaga o disco a cada reinício e, sem ela, seria preciso criar o acesso de novo. A linha não contém a senha.
+4. **Esqueceu a senha:** "Esqueci a senha" com o código de instalação define usuário e senha novos e encerra todas as sessões.
+5. **Sessão:** 12 h, no cabeçalho `Authorization` (sem cookie, então sem CSRF), guardada só na aba do navegador. Dez tentativas erradas bloqueiam o IP por alguns minutos.
+
+Sem `ADMIN_TOKEN` e sem `ADMIN_LOGIN`, o painel não existe (as rotas respondem 404). O painel mostra:
 
 - **Saúde:** há quanto tempo o TSE respondeu, pausas por limite de acesso, UFs do 2º turno na configuração do TSE, disputas, feeds e conexões ao vivo. Atualiza a cada 10 s.
 - **Cadastro de pesquisas do TSE:** quantas pesquisas presidenciais tem e quando foi lido.
@@ -198,7 +207,6 @@ Com `ADMIN_TOKEN` definido, `/admin.html` mostra:
 - **Pesquisas detectadas nas manchetes:** registros nacionais citados em manchetes que ainda não estão no modelo.
 - **No modelo:** automáticas (com os veículos que confirmaram) e aprovadas no painel. Ao aprovar ou remover, a aba Previsões é recalculada para todos na hora. Ficam em `data/pesquisas.json`.
 
-A senha vai no cabeçalho `Authorization` (sem cookie) e fica só na aba do navegador. Dez senhas erradas bloqueiam o IP por alguns minutos.
 
 **Aviso de dados parados:** se o TSE não responde há mais de 3 ciclos de consulta (mínimo 90 s), aparece uma faixa no topo e a linha "Ao vivo" troca por "Último dado recebido".
 

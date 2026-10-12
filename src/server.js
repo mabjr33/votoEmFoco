@@ -81,7 +81,8 @@ data: ${JSON.stringify(ev)}
 
 `; for (const res of sseClients) res.write(msg); };
   const admin = criarAdmin({
-    token: cfg.adminToken, collector, noticias, pesquisas, cadastro, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
+    // conta do painel fora de data/mock (apagada a cada execução do modo de teste)
+    token: cfg.adminToken, loginEnv: cfg.adminLogin, dataDir: cfg.cacheDir || cfg.dataDir, acesso: cfg.acesso, collector, noticias, pesquisas, cadastro, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
     aoMudarPesquisas: () => avisarTodos({ raceId: 'pesquisas' }),
   });
   // Cada conexão ao vivo segura um socket aberto: com teto, uma enxurrada de conexões não derruba o servidor
@@ -254,7 +255,7 @@ export async function main(overrides = {}) {
   await pesquisas.carregar();
   const auto = noticias && cfg.pesquisasTse?.url && process.env.PESQUISAS_AUTO !== '0' ? criarAutomacao({ cfg, noticias, pesquisas, e26 }) : null;
   const server = createApp(cfg, collector, noticias, { pesquisas, cadastro: auto?.cadastro });
-  if (cfg.adminToken) console.log('[admin] painel em /admin.html (senha: ADMIN_TOKEN)');
+  if (cfg.adminToken || cfg.adminLogin) console.log(`[admin] painel em /admin.html (${cfg.adminLogin ? 'entrar com usuário e senha' : 'primeiro acesso: crie usuário e senha com o código de instalação ADMIN_TOKEN'})`);
   await new Promise((r) => server.listen(cfg.port, cfg.host, r));
   console.log(`[servidor] http://localhost:${cfg.port}  (fonte: ${cfg.base}/${cfg.ambiente}, polling ${cfg.pollIntervalMs / 1000}s, máx ${cfg.maxRps} req/s)`);
   collector.start();

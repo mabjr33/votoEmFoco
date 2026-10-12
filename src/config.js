@@ -21,7 +21,8 @@ export function loadConfig(overrides = {}) {
     port: Number(env.PORT || 3000),
     host: env.HOST || '0.0.0.0',
     dataDir: env.DATA_DIR || path.join(ROOT, 'data'),
-    adminToken: env.ADMIN_TOKEN || null,
+    adminToken: env.ADMIN_TOKEN || null, // código de instalação do painel (criar ou redefinir o acesso)
+    adminLogin: env.ADMIN_LOGIN || null, // usuário e hash da senha do painel, gerados pelo próprio painel
     publicUrl: env.PUBLIC_URL || null,
     trustProxy: env.TRUST_PROXY === '1',
     ...overrides,

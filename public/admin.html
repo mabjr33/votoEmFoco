@@ -12,13 +12,35 @@
 <body class="admin">
   <main>
     <h1>Painel</h1>
-    <section id="entrar">
-      <p class="intro">Digite a senha definida em <code>ADMIN_TOKEN</code>. Ela fica só nesta aba do navegador.</p>
-      <form id="form-entrar" class="linha-campo">
-        <input class="entrada" id="senha" type="password" autocomplete="current-password" aria-label="Senha" required>
-        <button class="botao" type="submit">Entrar</button>
+    <p class="erro" id="aviso-acesso" role="alert"></p>
+
+    <section id="entrar" hidden>
+      <h2>Entrar</h2>
+      <form id="form-entrar" class="form-acesso">
+        <label>Usuário<input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+        <label>Senha<input class="entrada" name="senha" type="password" autocomplete="current-password" required></label>
+        <div><button class="botao" type="submit">Entrar</button> <button class="link" type="button" id="ir-redefinir">Esqueci a senha</button></div>
       </form>
-      <p class="erro" id="erro-entrar" role="alert"></p>
+    </section>
+
+    <section id="criar" hidden>
+      <h2 id="titulo-criar">Criar acesso</h2>
+      <p class="intro" id="intro-criar">Ainda não há acesso ao painel. Escolha seu usuário e sua senha. Para provar que você administra o servidor, informe o <b>código de instalação</b>: o valor de <code>ADMIN_TOKEN</code> (no Render, em Environment).</p>
+      <form id="form-criar" class="form-acesso">
+        <label>Código de instalação<input class="entrada" name="codigo" type="password" autocomplete="off" required></label>
+        <label>Usuário<input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" pattern="[a-z0-9._\-]{3,32}" title="3 a 32 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado" required></label>
+        <label>Senha<input class="entrada" name="senha" type="password" autocomplete="new-password" minlength="10" required></label>
+        <label>Repita a senha<input class="entrada" name="senha2" type="password" autocomplete="new-password" minlength="10" required></label>
+        <p class="nota">A senha precisa ter pelo menos 10 caracteres, não pode conter o usuário nem ser uma senha comum. Uma frase curta funciona bem.</p>
+        <div><button class="botao" type="submit">Salvar acesso</button> <button class="link" type="button" id="voltar-entrar" hidden>Voltar</button></div>
+      </form>
+    </section>
+
+    <section id="guardar" hidden>
+      <h2>Guarde o acesso no servidor</h2>
+      <p class="intro">Seu acesso foi salvo neste servidor. Hospedagens gratuitas, como o Render, apagam o disco a cada reinício: para não perder o acesso, crie a variável abaixo em <b>Environment</b>. Ela tem seu usuário e uma impressão da senha (hash), não a senha.</p>
+      <pre class="linha-env" id="linha-env"></pre>
+      <p><button class="botao-2" type="button" id="copiar-env">Copiar</button> <button class="botao" type="button" id="continuar">Continuar para o painel</button></p>
     </section>
 
     <div id="conteudo" hidden>
@@ -66,6 +88,17 @@
         <h2>No modelo (automáticas e aprovadas no painel)</h2>
         <p class="intro">Uma automática removida aqui não volta sozinha; só pelo formulário.</p>
         <div id="aprovadas"></div>
+      </section>
+      <section>
+        <h2>Sua conta</h2>
+        <p class="intro" id="conta-info"></p>
+        <form id="form-senha" class="form-acesso">
+          <label>Senha atual<input class="entrada" name="senhaAtual" type="password" autocomplete="current-password" required></label>
+          <label>Nova senha<input class="entrada" name="novaSenha" type="password" autocomplete="new-password" minlength="10" required></label>
+          <label>Repita a nova senha<input class="entrada" name="novaSenha2" type="password" autocomplete="new-password" minlength="10" required></label>
+          <div><button class="botao-2" type="submit">Trocar senha</button> <span class="erro" id="erro-senha" role="alert"></span></div>
+        </form>
+        <p><button class="botao-2" type="button" id="ver-env">Mostrar a variável ADMIN_LOGIN</button></p>
       </section>
       <p><button class="botao-2" id="sair" type="button">Sair</button></p>
     </div>

@@ -11,8 +11,14 @@ services:
         value: "1"
       - key: PUBLIC_URL
         sync: false   # ex.: https://voto-em-foco.onrender.com
+      # Código de instalação do painel (/admin.html): pedido só para criar o acesso (usuário e senha que
+      # você escolhe) ou para redefini-lo se esquecer a senha. Veja o valor em Environment no Render.
       - key: ADMIN_TOKEN
-        generateValue: true   # senha do painel (/admin.html); veja em Environment no Render
+        generateValue: true
+      # Usuário e hash da senha do painel. O próprio painel mostra a linha depois que você cria o acesso:
+      # cole aqui para o acesso sobreviver aos reinícios (o plano gratuito apaga o disco).
+      - key: ADMIN_LOGIN
+        sync: false
       # teste = 1º turno real + 2º turno SIMULADO, para mostrar aos amigos antes do dia 25.
       # No dia da eleição, apague esta variável (ou troque para "producao") para usar o TSE ao vivo.
       - key: MODO
