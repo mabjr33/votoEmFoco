@@ -125,11 +125,17 @@ main { padding-top: var(--e4); padding-bottom: var(--e5); }
 /* ---------- mapa + painel ---------- */
 .explorar { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: var(--e5); align-items: start; }
 .mapa { position: relative; }
-.mapa svg { width: 100%; height: auto; display: block; max-height: 640px; user-select: none; }
+.mapa svg { width: 100%; height: auto; display: block; max-height: 640px; user-select: none; -webkit-tap-highlight-color: transparent; }
+/* em SVG o contorno de foco vira um retângulo em volta do estado: o destaque segue o desenho */
+.mapa svg :focus { outline: none; }
+.mapa svg * { -webkit-tap-highlight-color: transparent; }
 .mapa svg.br path[data-uf] { fill: var(--vazio); stroke: var(--bg); stroke-width: 1.2; stroke-linejoin: round; cursor: pointer; transition: fill .3s, opacity .15s; }
 .mapa svg.br path[data-uf]:hover { opacity: .82; }
 .mapa svg.br path.sel { stroke: var(--tinta); stroke-width: 2.4; }
 .mapa svg.br path:focus-visible { outline: none; stroke: var(--foco); stroke-width: 2.4; }
+.mapa svg.br .chamada { cursor: pointer; }
+.mapa svg.br .chamada.sel rect { stroke: var(--tinta); stroke-width: 2; }
+.mapa svg.br .chamada:focus-visible rect { stroke: var(--foco); stroke-width: 2.4; }
 .zoom { position: absolute; right: 0; bottom: 0; display: flex; flex-direction: column; border: 1px solid var(--linha); background: var(--sup); border-radius: 10px; overflow: hidden; }
 .zoom button { border: 0; background: none; width: 34px; height: 32px; cursor: pointer; color: var(--tinta-2); font-size: 18px; }
 .zoom button + button { border-top: 1px solid var(--linha); }
@@ -139,6 +145,7 @@ main { padding-top: var(--e4); padding-bottom: var(--e5); }
 .mapa svg.mundo .br-estados path { stroke: var(--bg); stroke-width: .9; }
 .mapa svg.mundo circle { stroke: var(--sup); stroke-width: calc(.8px / var(--k, 1)); cursor: pointer; }
 .mapa svg.mundo circle:hover { stroke: var(--tinta); }
+.mapa svg.mundo circle:focus-visible { stroke: var(--foco); stroke-width: calc(2px / var(--k, 1)); }
 .mapa svg.mundo .nomes text { font: 600 calc(11px / var(--k, 1.18)) var(--fonte); fill: var(--tinta); paint-order: stroke; stroke: var(--bg); stroke-width: 2.5px; pointer-events: none; }
 
 .mapa-pe { display: flex; justify-content: space-between; align-items: center; gap: var(--e2); flex-wrap: wrap; margin-top: var(--e2); font-size: 13px; color: var(--tinta-2); }
