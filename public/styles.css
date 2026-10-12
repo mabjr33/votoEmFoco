@@ -313,6 +313,18 @@ details.secao[open] > summary::after { content: "−"; }
 .fila-rot { font-weight: 500; font-size: 15px; line-height: 1.25; }
 .fila-rot small { display: block; color: var(--tinta-3); font-size: 12px; font-weight: 400; }
 .fila-v { font: 500 20px var(--num); text-align: right; }
+/* 2026 na história: dois números por linha (1º turno entre os dois → 2º turno) */
+.filas.historia .fila { grid-template-columns: 210px minmax(0, 1fr) 150px; }
+.fila-v.dupla { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: baseline; }
+.fila-v.dupla .t1 { color: var(--tinta-2); font-size: 17px; }
+.fila-v.dupla .seta { color: var(--tinta-3); font-size: 14px; }
+.fila.cab { border-top: 0; padding: 0 0 4px; }
+.fila.cab .fila-v.dupla span { font: 500 12px var(--fonte); color: var(--tinta-3); }
+.legenda-hist { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--tinta-2); margin: var(--e2) 0 6px; }
+.legenda-hist span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda-hist .pto { position: static; display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--sup); background: var(--tinta); transform: none; }
+.legenda-hist .pto.vazado { background: var(--sup); border-color: var(--tinta-2); }
+.legenda-hist .pto.prev { background: var(--sup); border: 2px dashed var(--tinta); }
 .trilho-p { position: relative; height: 22px; }
 .fila:not(.eixo) .trilho-p::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--linha); }
 .trilho-p i { position: absolute; top: 50%; transform: translate(-50%, -50%); }
@@ -487,6 +499,9 @@ details.secao[open] > summary::after { content: "−"; }
   .numeros { gap: var(--e3); }
   .prev-resumo, .fatos, .explica-grade { grid-template-columns: minmax(0, 1fr); gap: var(--e2); }
   .fila { grid-template-columns: minmax(0, 1fr) 56px; gap: 6px 12px; }
+  .filas.historia .fila { grid-template-columns: minmax(0, 1fr) 118px; }
+  .filas.historia .fila.cab { display: none; }
+  .fila-v.dupla .t1 { font-size: 15px; }
   .fila-rot { grid-column: 1 / -1; }
   .fila .trilho-p { grid-column: 1; }
   .fila.eixo > div:first-child, .fila.eixo > div:last-child { display: none; }

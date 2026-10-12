@@ -149,10 +149,12 @@ function blocoHistoria() {
     const dica = prev
       ? `<b>2026</b><br>1º turno: ${NOME_F} ${fmtPct(l.partilha1)}% entre os dois<br>Previsão combinada: ${fmtPct(s2)}%`
       : `<b>${l.ano}</b><br>${l.lider} (líder) × ${l.segundo}<br>1º turno: ${fmtPct(l.partilha1)}% entre os dois<br>2º turno: ${fmtPct(s2)}%`;
-    return `<div class="fila ${prev ? 'destaque' : ''}"><div class="fila-rot">${l.ano}<small>${esc(l.lider)} × ${esc(l.segundo)}${l.incumbente === 'lider' ? ', líder era o presidente' : l.incumbente === 'segundo' ? ', 2º era o presidente' : ''}</small></div>
+    // Voto real no 1º turno, para mostrar de onde vem a fatia "entre os dois"
+    const votos1 = `${esc(l.lider.split(' ')[0])} ${fmtPct(e.lider.t1, 1)}% × ${esc(l.segundo.split(' ')[0])} ${fmtPct(e.segundo.t1, 1)}% no 1º turno`;
+    return `<div class="fila ${prev ? 'destaque' : ''}"><div class="fila-rot">${l.ano}<small>${esc(l.lider)} × ${esc(l.segundo)}${l.incumbente === 'lider' ? ', líder era o presidente' : l.incumbente === 'segundo' ? ', 2º era o presidente' : ''}</small><small>${votos1}</small></div>
       <div class="trilho-p">${linhaRef(50, lo, hi)}<i class="seg ${prev ? 'prev' : ''}" style="left:${pos(a, lo, hi)}%;width:${pos(b, lo, hi) - pos(a, lo, hi)}%"></i>
       <i class="pto vazado" style="left:${pos(l.partilha1, lo, hi)}%" data-dica="${esc(dica)}"></i><i class="pto ${prev ? 'prev' : ''}" style="left:${pos(s2, lo, hi)}%" data-dica="${esc(dica)}"></i></div>
-      <div class="fila-v">${prev ? `${fmtPct(s2, 1)}%*` : `${fmtPct(s2, 1)}%`}</div></div>`;
+      <div class="fila-v dupla"><span class="t1">${fmtPct(l.partilha1, 1)}%</span><span class="seta" aria-hidden="true">→</span><span class="t2">${fmtPct(s2, 1)}%${prev ? '*' : ''}</span></div></div>`;
   }).join('');
   const fatos = [
     ['Viradas no 2º turno', `${c.disputas - c.lideresVenceram} em ${c.disputas}`, 'O líder do 1º turno venceu todas as disputas de 2º turno desde 1989.'],
@@ -160,9 +162,10 @@ function blocoHistoria() {
     ['Os dois finalistas somaram', pct(c.soma2026, 2), `A maior soma da série, acima dos ${pct(c.maiorSomaAnterior, 2)} de 2022. Sobram poucos votos para disputar.`],
   ].map(([r, n, s]) => `<div><div class="r">${r}</div><div class="n">${n}</div><div class="s">${s}</div></div>`).join('');
   return `<section><h2>2026 na história</h2>
-    <p class="intro">Percentual do líder do 1º turno entre os dois finalistas: o círculo vazado é o 1º turno e o cheio, o resultado do 2º. Em 2026, o ponto cheio é a previsão combinada (*). Quanto mais perto da linha de 50%, mais apertado.</p>
+    <p class="intro">Cada linha mostra quanto o líder do 1º turno tinha <b>contando só os votos dos dois finalistas</b>, no 1º turno e no 2º. Por isso os números não são os do 1º turno que costumam aparecer: em 1989, Collor teve 30,5% e Lula 17,2%; entre os dois, Collor ficava com 63,9%. Quanto mais perto da linha de 50%, mais apertado.</p>
     <div class="fatos">${fatos}</div>
-    <div class="filas">${filas}${eixo(lo, hi, 5)}</div>
+    <div class="legenda-hist"><span><i class="pto vazado"></i>1º turno, entre os dois</span><span><i class="pto"></i>2º turno</span><span><i class="pto prev"></i>2026: previsão combinada (*), ainda não é resultado</span></div>
+    <div class="filas historia"><div class="fila cab"><div></div><div></div><div class="fila-v dupla"><span class="t1">1º turno</span><span class="seta"></span><span class="t2">2º turno</span></div></div>${filas}${eixo(lo, hi, 5)}</div>
     <p class="nota" style="margin-top:12px">Em 2022 e em 2026, o presidente em exercício chegou ao 2º turno em segundo lugar. Em 2022, Bolsonaro reduziu a diferença de ${fmtPct(48.43 - 43.2, 1)} pp no 1º turno para ${fmtPct(50.9 - 49.1, 1)} pp no 2º, mas não virou.</p></section>`;
 }
 
