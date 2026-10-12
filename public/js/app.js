@@ -6,6 +6,7 @@ import { corPartido, textoSobre } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
 import { NOME_SITE } from './marca.js';
 import { renderPrevisoes, fotosFinalistas, definirPesquisasExtras } from './previsoes.js';
+import { renderSimuladorFacil, ligarSimuladorFacil } from './simulador.js';
 import { renderNoticias, contarNovas } from './noticias.js';
 import MAPA from './mapa-brasil.js';
 
@@ -119,7 +120,7 @@ function lerRota() {
   const h = decodeURIComponent(location.hash.slice(1)) || 'presidente';
   const [aba, ...resto] = h.split('-');
   const suf = resto.join('-');
-  if (aba === 'simulador') return { aba, uf: null, sim: suf || S.rota.sim || 'pres' };
+  if (aba === 'simulador' || aba === 'avancado') return { aba, uf: null, sim: suf || S.rota.sim || 'pres' };
   if (aba === 'exterior' || aba === 'previsoes' || aba === 'noticias' || aba === 'telao') return { aba, uf: null, sim: S.rota.sim };
   if (!['presidente', 'governadores', 'senado'].includes(aba)) return { aba: 'presidente', uf: null, sim: S.rota.sim };
   return { aba, uf: /^[a-z]{2}$/.test(suf) ? suf : null, sim: S.rota.sim };
@@ -156,7 +157,7 @@ const hora = (s) => { const m = String(s || '').match(/(\d{2}):(\d{2})/); return
 function renderTopo() {
   document.title = S.status?.modoTeste ? `TESTE · ${NOME_SITE}` : NOME_SITE;
   $('#nome-site').textContent = NOME_SITE;
-  const vista = { simulador: 'simulador', previsoes: 'previsoes', noticias: 'noticias', telao: 'telao' }[S.rota.aba] || 'resultado';
+  const vista = { simulador: 'simulador', avancado: 'simulador', previsoes: 'previsoes', noticias: 'noticias', telao: 'telao' }[S.rota.aba] || 'resultado';
   document.body.classList.toggle('modo-telao', vista === 'telao');
   $('#vista-telao').hidden = vista !== 'telao';
   for (const a of $$('.vistas a')) a.setAttribute('aria-current', a.dataset.vista === vista ? 'page' : 'false');
@@ -201,7 +202,7 @@ function naTela(id) {
   if (id === 'pres') return true;
   const { aba, uf, sim } = S.rota;
   if (id === 'exterior') return aba === 'exterior';
-  return aba === 'governadores' || aba === 'telao' || (aba === 'simulador' && sim === id) || (!!uf && id === `gov-${uf}`);
+  return aba === 'governadores' || aba === 'telao' || ((aba === 'simulador' || aba === 'avancado') && sim === id) || (!!uf && id === `gov-${uf}`);
 }
 const atualizarParte = (id) => (id === 'exterior' ? carregarExteriorVivo() : carregarVivo(id));
 function atualizarAtrasadas() {
@@ -223,7 +224,11 @@ function render() {
   S.prevDesenhada = null;
   if (!S.pres || !S.pres.baseline.summary) { $('#placar').innerHTML = '<p class="nota">Carregando o 1º turno no TSE…</p>'; return; }
   const a = S.rota.aba;
-  if (a === 'simulador') return renderSimulador();
+  if (a === 'simulador') {
+    S.simDesenhado = null; // ao voltar para o avançado, ele se redesenha
+    return renderSimuladorFacil({ r: raceSim(), races: S.races, ufNome, fins, raiz: $('#controles'), resumoEl: $('#sim-resumo'), cores: coresGov });
+  }
+  if (a === 'avancado') return renderSimulador();
   S.simDesenhado = null;
   // No modo de teste, o 2º turno é simulado: deixa isso escrito em cima do placar
   $('#placar').classList.toggle('simulado', !!S.status?.modoTeste && ((S.turno === 2 && ['presidente', 'exterior'].includes(a)) || a === 'governadores'));
@@ -318,7 +323,7 @@ function renderPresidente() {
     } else {
       const f = c.final;
       corpo = duelo(A, B, f.pA, f.pB, f.A, f.B);
-      pe = `<span>Cenário do simulador. Diferença de <strong>${curto(Math.abs(f.margem))}</strong>${deQtd(Math.abs(f.margem))} votos. <a class="link" href="#simulador-pres">Ajustar</a></span>`;
+      pe = `<span>Cenário do simulador. Diferença de <strong>${curto(Math.abs(f.margem))}</strong>${deQtd(Math.abs(f.margem))} votos. <a class="link" href="#avancado-pres">Ajustar</a></span>`;
     }
   }
   $('#placar').innerHTML = `<div class="placar-topo"><h1>Presidente</h1><div class="controles-placar">
@@ -814,6 +819,7 @@ function renderSenado() {
 }
 
 // =================== SIMULADOR ===================
+const coresGov = (A, B) => { const ca = corPartido(A.partido); const cb = corPartido(B.partido) === ca ? 'var(--tinta-3)' : corPartido(B.partido); return [ca, cb]; };
 function raceSim() {
   const m = S.rota.sim.match(/^gov-([a-z]{2})$/);
   return (m && S.gov[m[1]]) || S.pres;
@@ -839,7 +845,8 @@ function desenharControles(r, c) {
   const elim = (r.baseline.summary?.cands || []).filter((x) => x.n !== A.n && x.n !== B.n && x.pvap >= 0.5).slice(0, 8);
   $('#controles').innerHTML = `
     <div class="sim-fixo" id="sim-fixo"></div>
-    <div class="cab-sim"><h1>Quem será eleito?</h1><select class="entrada" id="sim-race" aria-label="Disputa">${opcoes.map(([v, t]) => `<option value="${v}" ${v === r.id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
+    <p class="voltar-simples"><a class="link" href="#simulador-${r.id}">← Simulador simples</a></p>
+    <div class="cab-sim"><h1>Simulador avançado</h1><select class="entrada" id="sim-race" aria-label="Disputa">${opcoes.map(([v, t]) => `<option value="${v}" ${v === r.id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
     <p class="intro">Em votos válidos ${r.cargo === 1 ? 'do país inteiro' : `de ${esc(ufNome(r.scope))}`}. O que já foi apurado vem do TSE. O que falta, você decide como se divide, e o resultado é refeito a cada nova totalização.</p>
     <div class="agora" id="sim-agora"></div>
     ${encerrada(r) ? '<p class="aviso-sim">A apuração terminou: o resultado oficial está na aba <a href="#presidente">Resultado</a>. Aqui você simula o 2º turno inteiro a partir do 1º turno.</p>'
@@ -969,6 +976,7 @@ function mudouSim(r) {
 }
 
 function ligar() {
+  ligarSimuladorFacil($('#vista-simulador'), { ativo: () => S.rota.aba === 'simulador', ir });
   // Telão: setas trocam a disputa; cursor e controles somem com o mouse parado
   let ocioso;
   document.addEventListener('keydown', (e) => {
@@ -994,7 +1002,7 @@ function ligar() {
     if (t.dataset.evol && !t.disabled) { S.evolModo = t.dataset.evol; return render(); }
     if (t.id === 'evol-rever') return reverApuracao(S.pres);
     if (t.id === 'telao-cheia') return document.fullscreenElement ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.().catch(() => {});
-    if (S.rota.aba !== 'simulador') return;
+    if (S.rota.aba !== 'avancado') return;
     const r = raceSim(), o = opts(r);
     if (t.dataset.atalho) {
       const c = calcular(r), f = c.esperado;
@@ -1013,7 +1021,7 @@ function ligar() {
     if (t.id === 'sim-link') { navigator.clipboard?.writeText(location.href).then(() => { t.textContent = 'Link copiado'; }); }
   });
   document.addEventListener('input', (e) => {
-    if (S.rota.aba !== 'simulador') return;
+    if (S.rota.aba !== 'avancado') return;
     const t = e.target, r = raceSim(), o = opts(r), p = base(r);
     const out = document.getElementById(`${t.id}-out`);
     if (out) out.textContent = `${fmtPct(Number(t.value), Number(t.step) < 1 ? 1 : 0)}${out.dataset.u}`;
@@ -1033,7 +1041,7 @@ function ligar() {
   document.addEventListener('change', (e) => {
     const t = e.target;
     if (t.id === 'sel-uf' && t.value) return ir(`${t.dataset.aba}-${t.value}`);
-    if (t.id === 'sim-race') return ir(`simulador-${t.value}`);
+    if (t.id === 'sim-race') return ir(`avancado-${t.value}`);
     if (t.id === 'sim-zero') {
       const r = raceSim(), o = opts(r);
       Object.assign(o, { semApuracao: t.checked, modo: 'nacional', shareNacional: null, shareRegiao: {} });

@@ -628,3 +628,34 @@ body.modo-telao.ocioso .telao-acoes { opacity: 0; }
   .tabela .opc { display: none; }
   .tabela .so-cel { display: block; }
 }
+
+/* ---------- simulador simples: "para onde vão os eleitores" ---------- */
+.sf-grupo { border-top: 1px solid var(--linha); padding: var(--e3) 0; }
+.sf-grupo h2 { font-size: 18px; margin: 0; }
+.sf-sub { margin: 2px 0 var(--e2); color: var(--tinta-2); font-size: 14px; }
+.sf-controle { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 15px; margin-top: var(--e2); }
+.sf-controle output { font: 600 18px var(--num); white-space: nowrap; }
+.sf-grupo input[type=range] { width: 100%; margin: 8px 0 4px; accent-color: var(--tinta); height: 28px; }
+.sf-grupo input[type=range].dividir { -webkit-appearance: none; appearance: none; height: 10px; border-radius: 5px; margin: 14px 0 10px; background: linear-gradient(90deg, var(--a) var(--p), var(--b) var(--p)); }
+.sf-grupo input[type=range].dividir::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: var(--sup); border: 2px solid var(--tinta); cursor: pointer; }
+.sf-grupo input[type=range].dividir::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--sup); border: 2px solid var(--tinta); cursor: pointer; }
+.sf-grupo .nota { margin: 4px 0 0; }
+.sf-pre { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--e1); }
+.sf-pre .chip[aria-pressed="true"] { background: var(--tinta); color: var(--sup); border-color: var(--tinta); }
+.sf-duelo { display: flex; justify-content: space-between; gap: 12px; margin: var(--e2) 0 var(--e1); }
+.sf-lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sf-lado.b { align-items: flex-end; text-align: right; }
+.sf-nome { font-weight: 600; font-size: 14px; }
+.sf-pct { font: 500 40px/1 var(--num); }
+.sf-pct small { font-size: 18px; margin-left: 1px; }
+.sf-de-onde { margin-top: var(--e2); }
+.sf-de-onde h3 { font-size: 14px; margin: var(--e2) 0 4px; }
+.sf-origem { display: flex; justify-content: space-between; font-size: 14px; padding: 3px 0; color: var(--tinta-2); }
+.sf-origem b { color: var(--tinta); font-weight: 600; }
+.sf-aviso { margin-top: var(--e2); }
+.voltar-simples { margin: 0 0 var(--e1); font-size: 14px; }
+.sf-fixo { display: none; }
+@media (max-width: 980px) {
+  .sf-fixo { display: flex; justify-content: space-between; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 5; margin: 0 -16px var(--e2); padding: 10px 16px; background: var(--sup); border-bottom: 1px solid var(--linha); box-shadow: 0 2px 8px rgb(0 0 0 / 6%); font: 600 15px var(--fonte); }
+  .sf-fixo b { font-size: 13px; color: var(--tinta-2); font-weight: 600; text-align: center; }
+}
