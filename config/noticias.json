@@ -1,0 +1,15 @@
+{
+  "intervaloMs": 600000,
+  "diasGuardados": 7,
+  "maxItens": 400,
+  "fontes": [
+    { "id": "agenciabrasil", "nome": "Agência Brasil", "site": "agenciabrasil.ebc.com.br", "url": "https://agenciabrasil.ebc.com.br/rss/politica/feed.xml" },
+    { "id": "poder360", "nome": "Poder360", "site": "poder360.com.br", "url": "https://www.poder360.com.br/feed/" },
+    { "id": "congressoemfoco", "nome": "Congresso em Foco", "site": "congressoemfoco.com.br", "url": "https://www.congressoemfoco.com.br/rss" },
+    { "id": "metropoles", "nome": "Metrópoles", "site": "metropoles.com", "url": "https://www.metropoles.com/feed" },
+    { "id": "gazetadopovo", "nome": "Gazeta do Povo", "site": "gazetadopovo.com.br", "url": "https://www.gazetadopovo.com.br/feed/rss/republica.xml" },
+    { "id": "cartacapital", "nome": "CartaCapital", "site": "cartacapital.com.br", "url": "https://www.cartacapital.com.br/politica/feed/" },
+    { "id": "oeste", "nome": "Revista Oeste", "site": "revistaoeste.com", "url": "https://revistaoeste.com/politica/feed/" },
+    { "id": "brasildefato", "nome": "Brasil de Fato", "site": "brasildefato.com.br", "url": "https://www.brasildefato.com.br/feed/" }
+  ]
+}

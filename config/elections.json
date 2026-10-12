@@ -1,0 +1,19 @@
+{
+  "_comentario": "Parâmetros oficiais publicados pelo TSE em https://www.tse.jus.br/eleicoes/informacoes-tecnicas-sobre-a-divulgacao-de-resultados. Códigos do 2º turno (cdt2) são lidos automaticamente de comum/config/ele-c.json.",
+  "base": "https://resultados.tse.jus.br",
+  "ambiente": "oficial",
+  "ciclo": "ele2026",
+  "eleicoes": {
+    "federal1": "6257",
+    "estadual1": "6259"
+  },
+  "ufs": ["ac","al","am","ap","ba","ce","df","es","go","ma","mg","ms","mt","pa","pb","pe","pi","pr","rj","rn","ro","rr","rs","sc","se","sp","to"],
+  "exterior": "zz",
+  "incluirExterior": true,
+  "governador2TurnoFallback": ["ac","am","df","es","rj","rn","to"],
+  "pollIntervalMs": 15000,
+  "configIntervalMs": 120000,
+  "maxRps": 8,
+  "maxConcurrency": 4,
+  "userAgent": "eleicoes-ao-vivo/1.0 (+divulgacao de resultados; respeita limite de 100 req/s/IP)"
+}

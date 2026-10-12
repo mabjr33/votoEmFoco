@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2º turno 2026</title>
+  <meta name="description" content="Apuração do 2º turno em tempo real, com dados oficiais do TSE, e simulador de quem será eleito.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="teste" class="faixa-teste" hidden>Modo de teste com dados sintéticos e nomes fictícios. Nada aqui é resultado real.</div>
+
+  <header class="topo">
+    <div class="topo-linha">
+      <a class="nome-site" id="nome-site" href="#presidente">2º turno 2026</a>
+      <nav class="vistas" aria-label="Seções">
+        <a href="#presidente" data-vista="resultado">Resultado</a>
+        <a href="#previsoes" data-vista="previsoes">Previsões</a>
+        <a href="#noticias" data-vista="noticias">Notícias</a>
+        <a href="#simulador" data-vista="simulador">Simulador</a>
+      </nav>
+      <button type="button" class="buscar" id="busca-abrir"><span aria-hidden="true">⌕</span><span class="rot">Buscar</span></button>
+    </div>
+    <p id="fonte" class="fonte" aria-live="polite">Conectando ao servidor…</p>
+  </header>
+
+  <main>
+    <section id="vista-resultado">
+      <nav class="disputas" aria-label="Disputa">
+        <a href="#presidente" data-aba="presidente">Presidente</a>
+        <a href="#governadores" data-aba="governadores">Governadores</a>
+        <a href="#senado" data-aba="senado">Senado</a>
+        <a href="#exterior" data-aba="exterior">Exterior</a>
+      </nav>
+      <div id="placar" class="placar"></div>
+      <div class="explorar">
+        <div class="mapa-area">
+          <div id="mapa" class="mapa"></div>
+          <div id="mapa-pe" class="mapa-pe"></div>
+        </div>
+        <div id="fundo" class="fundo" hidden></div>
+        <aside id="painel" class="painel" aria-live="polite"></aside>
+      </div>
+      <section id="abaixo" class="abaixo"></section>
+    </section>
+
+    <section id="vista-previsoes" class="previsoes" hidden></section>
+
+    <section id="vista-noticias" class="noticias" hidden></section>
+
+    <section id="vista-simulador" hidden>
+      <div class="sim-grade">
+        <div id="controles" class="controles"></div>
+        <aside id="sim-resumo" class="sim-resumo"></aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <p>Resultados oficiais: arquivos de divulgação do TSE (resultados.tse.jus.br). Projeções, previsões e simulações são estimativas e cenários hipotéticos; não são pesquisas eleitorais.</p>
+    <p>Notícias: manchetes e links publicados pelos próprios veículos em seus feeds; o conteúdo é de cada veículo.</p>
+    <p>Mapas: <a href="https://github.com/VictorCazanave/svg-maps">@svg-maps/brazil</a>, de Victor Cazanave (CC BY 4.0), e Natural Earth via <a href="https://github.com/topojson/world-atlas">world-atlas</a>.</p>
+  </footer>
+
+  <div id="busca" class="busca" hidden role="dialog" aria-label="Buscar">
+    <div class="busca-caixa">
+      <input id="busca-campo" type="search" placeholder="Estado, cidade no exterior ou candidato" autocomplete="off">
+      <ul id="busca-res"></ul>
+    </div>
+  </div>
+  <div id="dica" class="dica" role="tooltip" hidden></div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
