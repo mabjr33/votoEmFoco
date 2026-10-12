@@ -176,7 +176,7 @@ function renderTopo() {
   const sm = S.pres?.live?.summary;
   if (S.status?.pausedUntil && Date.parse(S.status.pausedUntil) > Date.now()) el.innerHTML = '<span class="ponto"></span>Consultas ao TSE em pausa para respeitar o limite de acesso. Mostrando o último dado recebido.';
   else if (parado && temVotos(S.pres)) el.innerHTML = `<span class="ponto"></span>Último dado recebido: totalização das ${esc(hora(sm.totalizadoEm))}, com ${fmtPct(sm.secoes.pst, 1)}% das seções.`;
-  else if (temVotos(S.pres)) el.innerHTML = `<span class="ponto ${sm.totalFinal ? '' : 'vivo'}"></span>${sm.totalFinal ? 'Apuração encerrada' : 'Ao vivo'}, ${S.status?.modoTeste ? 'em simulação de teste' : 'com dados do TSE'}. Última totalização às ${esc(hora(sm.totalizadoEm))}, com ${fmtPct(sm.secoes.pst, 1)}% das seções.`;
+  else if (temVotos(S.pres)) el.innerHTML = `<span class="ponto ${sm.totalFinal ? '' : 'vivo'}"></span>${sm.totalFinal ? 'Apuração encerrada' : 'Ao vivo'}${S.status?.modoTeste ? ' (simulação de teste)' : ', dados do TSE'} · ${fmtPct(sm.secoes.pst, 1)}% das seções · ${esc(hora(sm.totalizadoEm))}`;
   else if (S.pres) el.innerHTML = '<span class="ponto"></span>A apuração do 2º turno começa em 25 de outubro, às 17h de Brasília.';
   else el.textContent = 'Carregando os dados do TSE…';
 }
@@ -341,6 +341,7 @@ function renderPresidente() {
   $('#painel').innerHTML = uf ? painelPresUf(uf, c) : painelPresBrasil(c);
   abrirPainel(!!uf);
   $('#abaixo').innerHTML = blocoRegioes(c) + blocoEvolucao(r) + blocoCronologia();
+  lembrarDobras($('#abaixo'));
 }
 
 function seletorEstado(aba) {
@@ -443,7 +444,7 @@ function blocoRegioes(c) {
     return `<div class="regiao"><div class="nome">${esc(reg.nome)}</div><div class="pct" style="color:${cor}">${fmtPct(Math.max(pA, 100 - pA), 1)}%</div>
       <div class="quem">${esc(lider.nmu)} à frente</div>${barra(pA, 100 - pA, CA, CB, { pequena: true })}<div class="sub">${sub}</div></div>`;
   }).join('');
-  return `<section><h2>Por região</h2><p class="intro">Divisão dos votos válidos entre ${esc(A.nmu)} e ${esc(B.nmu)} em cada região do país e no exterior.</p><div class="regioes">${cel}</div></section>`;
+  return `<section><h2>Por região</h2><div class="regioes">${cel}</div></section>`;
 }
 
 /**
@@ -474,27 +475,38 @@ function blocoVirada(r, { titulo: h = 'h2', classe = '', cores = [CA, CB] } = {}
   const d = dadosVirada(r);
   if (!d) return '';
   const { s, sm, atras } = d;
+  const [A, B] = fins(r);
+  const frente = s.atras === 'A' ? B : A;
   const cor = s.atras === 'A' ? cores[0] : cores[1];
   const pct = pctFr;
+  const qtd = (n) => `${curto(n)}${deQtd(n)}`;
+  // Fala da contagem oficial (votos já totalizados), que pode ser diferente da projeção do placar
+  const contagem = `Na contagem oficial (${fmtPct(sm.secoes.pst, 1)}% das seções), ${esc(frente.nmu)} está <b>${qtd(s.diferenca)} votos</b> à frente.`;
+  const metodo = 'Votos que faltam: estimativa a partir das seções que faltam em cada estado. Teto: eleitores das seções ainda não totalizadas, segundo o TSE.';
   let resp, texto, medidor = '';
   if (s.impossivel || sm.md === 'e') {
     resp = 'Não';
-    texto = s.impossivel
-      ? `A diferença de <b>${curto(s.diferenca)}</b>${deQtd(s.diferenca)} votos é maior que o número de eleitores das seções que ainda faltam (${curto(s.teto)}). Mesmo que todos fossem votar e votassem em ${esc(atras.nmu)}, não alcançaria.`
-      : 'O TSE indica que o resultado está matematicamente definido.';
+    texto = s.impossivel ? `${contagem} A diferença já é maior que todos os eleitores das seções que faltam.` : 'O TSE indica resultado matematicamente definido.';
   } else if (s.precisa > 1) {
     resp = 'Pela estimativa, não';
-    texto = `${esc(atras.nmu)} está <b>${curto(s.diferenca)}</b>${deQtd(s.diferenca)} votos atrás e faltam cerca de ${curto(s.faltam)}${deQtd(s.faltam)} votos válidos: nem com todos eles alcançaria. Só com mais votos do que o estimado. No limite, com todos os ${curto(s.teto)}${deQtd(s.teto)} eleitores das seções que faltam votando, precisaria de ${pct(s.precisaNoTeto)} deles.`;
+    texto = `${contagem} Pela estimativa, nem todos os ${qtd(s.faltam)} votos válidos que faltam bastariam para ${esc(atras.nmu)}.`;
   } else {
     resp = 'Sim';
-    texto = `${esc(atras.nmu)} está <b>${curto(s.diferenca)}</b>${deQtd(s.diferenca)} votos atrás. Faltam cerca de ${curto(s.faltam)}${deQtd(s.faltam)} votos válidos. Para empatar, precisa de <b>${pct(s.precisa)}</b> deles${s.recebe == null ? '.' : `; pela tendência das seções que faltam, ficaria com ${pct(s.recebe)}.`}`;
-    medidor = `<div class="medidor-virada" role="img" aria-label="Precisa de ${pct(s.precisa)} dos votos que faltam${s.recebe == null ? '' : `; estimativa de ${pct(s.recebe)}`}">
+    texto = `${contagem} Para virar, ${esc(atras.nmu)} precisa de <b>${pct(s.precisa)}</b> dos votos que faltam${s.recebe == null ? '.' : `; a tendência indica ${pct(s.recebe)}.`}`;
+    medidor = `<div class="medidor-virada" role="img" aria-label="Precisa de ${pct(s.precisa)} dos votos que faltam${s.recebe == null ? '' : `; tendência de ${pct(s.recebe)}`}">
       ${s.recebe == null ? '' : `<span class="est" style="width:${clamp(s.recebe, 0, 1) * 100}%;background:${cor}"></span>`}
-      <i class="precisa ${s.precisa > 0.8 ? 'dir' : s.precisa < 0.2 ? 'esq' : ''}" style="left:${clamp(s.precisa, 0, 1) * 100}%"><b>precisa ${pct(s.precisa)}</b></i></div>
-      <div class="medidor-pe"><span>0%</span><span>${s.recebe == null ? '' : `estimativa: ${pct(s.recebe)}`}</span><span>100% dos votos que faltam</span></div>`;
+      <i class="precisa ${s.precisa > 0.8 ? 'dir' : s.precisa < 0.2 ? 'esq' : ''}" style="left:${clamp(s.precisa, 0, 1) * 100}%"><b>precisa ${pct(s.precisa)}</b></i></div>`;
   }
-  return `<div class="virada-card ${classe}"><${h}>Ainda dá para virar? <span class="resp">${resp}</span></${h}><p>${texto}</p>${medidor}
-    <p class="nota">Votos que faltam: estimativa a partir das seções que faltam em cada estado. Teto: eleitores das seções ainda não totalizadas, segundo o TSE.</p></div>`;
+  return `<div class="virada-card ${classe}" title="${esc(metodo)}"><${h}>Ainda dá para virar? <span class="resp">${resp}</span></${h}><p>${texto}</p>${medidor}</div>`;
+}
+
+/** Reabre os blocos recolhidos que a pessoa tinha aberto e passa a lembrar dos próximos. */
+function lembrarDobras(raiz) {
+  S.dobrasAbertas ||= new Set();
+  for (const d of raiz.querySelectorAll('details.dobra[data-dobra]')) {
+    if (S.dobrasAbertas.has(d.dataset.dobra)) d.open = true;
+    d.addEventListener('toggle', () => { if (d.open) S.dobrasAbertas.add(d.dataset.dobra); else S.dobrasAbertas.delete(d.dataset.dobra); });
+  }
 }
 
 // ---------- como a apuração andou ----------
@@ -554,9 +566,9 @@ function blocoEvolucao(r) {
   const dif = temDiferenca(pts);
   const modo = dif && S.evolModo === 'dif' ? 'dif' : 'pct';
   const n = S.evolRever?.id === r.id ? S.evolRever.i : pts.length;
-  const intro = modo === 'dif' ? 'Diferença em votos válidos entre os dois conforme as seções foram totalizadas.' : `${quad(CA)}${esc(A.nmu)} &nbsp; ${quad(CB)}${esc(B.nmu)}. Percentual dos votos válidos conforme as seções foram totalizadas.`;
+  const intro = modo === 'dif' ? 'Diferença em votos válidos, conforme as seções foram totalizadas.' : `${quad(CA)}${esc(A.nmu)} &nbsp; ${quad(CB)}${esc(B.nmu)}`;
   return `<section id="evolucao"><div class="evol-cab"><h2>Como a apuração andou</h2>${alternar('evol', [['pct', 'Percentuais'], ['dif', 'Diferença em votos', dif]], modo)}</div>
-    <p class="intro">${intro} Passe o mouse ou toque na linha para ver cada momento.</p>
+    <p class="intro">${intro}</p>
     <div id="evol-svg">${svgEvolucao(r, pts, modo, n)}</div>
     <div class="evol-pe"><button type="button" class="botao-2" id="evol-rever">${S.evolRever ? 'Parar' : 'Rever a apuração'}</button><span id="evol-leg" aria-live="polite">${esc(legendaPonto(r, pts[Math.max(0, n - 1)]))}</span></div></section>`;
 }
@@ -588,7 +600,9 @@ function blocoCronologia() {
   // No celular, só os lotes mais recentes (a lista inteira ocupava várias telas)
   const itens = S.eventos.filter((e) => e.tipo === 'secoes' && e.a && e.b).slice(0, document.documentElement.clientWidth < 600 ? 6 : 14).map((e) =>
     `<li><span class="h">${esc(e.hora || '')}</span><span>${esc(e.texto)}. ${esc(e.a.nmu)} ${fmtPct(e.a.pvap)}%, ${esc(e.b.nmu)} ${fmtPct(e.b.pvap)}%.</span></li>`).join('');
-  return `<section><h2>Registro da apuração</h2><p class="intro">Cada novo lote de seções totalizadas pelo TSE, do mais recente para o mais antigo.</p>${itens ? `<ul class="cronologia">${itens}</ul>` : '<p class="nota">Ainda não há seções do 2º turno totalizadas.</p>'}</section>`;
+  const n = S.eventos.filter((e) => e.tipo === 'secoes' && e.a && e.b).length;
+  return `<details class="dobra" data-dobra="cronologia"><summary><span class="dobra-t">Registro da apuração</span><span class="dobra-r">${n ? `${fmtInt(n)} lote${n > 1 ? 's' : ''} de seções totalizadas pelo TSE` : 'Ainda sem seções do 2º turno'}</span></summary>
+    <div class="dobra-corpo">${itens ? `<ul class="cronologia">${itens}</ul>` : '<p class="nota">Ainda não há seções do 2º turno totalizadas.</p>'}</div></details>`;
 }
 
 // =================== EXTERIOR ===================
@@ -668,6 +682,7 @@ function renderGovernadores() {
   }
   abrirPainel(!!uf);
   $('#abaixo').innerHTML = blocoCronologia();
+  lembrarDobras($('#abaixo'));
 }
 
 function painelGovUf(uf) {

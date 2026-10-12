@@ -323,7 +323,7 @@ details.secao[open] > summary::after { content: "−"; }
 .prev-cab .intro { color: var(--tinta-2); max-width: 70ch; margin-top: var(--e1); }
 .prev-topo { margin-top: var(--e4); }
 .prev-topo .lado .pct { margin-top: var(--e2); }
-.prev-resumo { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--e3); margin-top: var(--e1); }
+.prev-resumo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e3); margin-top: var(--e1); }
 .prev-resumo .r, .fatos .r { font-size: 13px; color: var(--tinta-2); }
 .prev-resumo .n, .fatos .n { font: 500 30px/1.15 var(--num); margin-top: 4px; }
 .prev-resumo .n small { font: 400 14px var(--fonte); color: var(--tinta-2); margin-left: 4px; }
@@ -603,4 +603,28 @@ body.modo-telao.ocioso .telao-acoes { opacity: 0; }
   body.modo-telao { height: auto; overflow: visible; }
   .telao-grade.com-mapa { grid-template-columns: 1fr; }
   .telao-lado .avatar { --tam: 64px !important; }
+}
+
+/* ---------- seções que abrem com um clique (Previsões e outras) ---------- */
+.entenda > h2 { margin-bottom: var(--e2); }
+.dobra { border-top: 1px solid var(--linha); }
+.dobra:last-of-type { border-bottom: 1px solid var(--linha); }
+.dobra > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t seta" "r seta"; gap: 2px 16px; align-items: center; padding: 16px 4px; }
+.dobra > summary::-webkit-details-marker { display: none; }
+.dobra > summary::after { content: ""; grid-area: seta; width: 9px; height: 9px; border-right: 2px solid var(--tinta-3); border-bottom: 2px solid var(--tinta-3); transform: rotate(45deg); transition: transform .2s; margin-right: 6px; }
+.dobra[open] > summary::after { transform: rotate(225deg); }
+.dobra > summary:hover .dobra-t { text-decoration: underline; text-underline-offset: 3px; }
+.dobra-t { grid-area: t; font-weight: 600; font-size: 17px; }
+.dobra-r { grid-area: r; color: var(--tinta-2); font-size: 14px; }
+.dobra-corpo { padding: 4px 4px var(--e4); }
+.dobra-corpo > h2:first-child { display: none; }
+@media (prefers-reduced-motion: reduce) { .dobra > summary::after { transition: none; } }
+.abaixo > .dobra { margin-top: var(--e4); }
+.not-lado .dobra { margin-top: var(--e3); }
+.virada-card[title] { cursor: help; }
+/* tabela de pesquisas: no celular, só instituto (com o campo embaixo) e votos válidos */
+.tabela .so-cel { display: none; }
+@media (max-width: 600px) {
+  .tabela .opc { display: none; }
+  .tabela .so-cel { display: block; }
 }

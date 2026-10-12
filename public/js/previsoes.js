@@ -45,17 +45,21 @@ function cabecaCandidato(nome, cor, foto, lado) {
 }
 
 // ---------- blocos ----------
+/** A previsão em votos (vai dentro de "Por quanto"). */
+function textoVotos(ctx) {
+  const s = ctx.pres?.baseline?.summary, f = P.combinado.centro;
+  if (!(s?.eleitores?.te && s.votos?.vv && s.eleitores.c)) return '';
+  const comp = s.eleitores.te * (1 - P.abstencao.centro / 100);
+  const validos = comp * (s.votos.vv / s.eleitores.c);
+  const dif = (Math.abs(2 * f - 100) / 100) * validos;
+  return `<p class="nota">Em votos: com ${curto(s.eleitores.te)}${deQtd(s.eleitores.te)} eleitores, abstenção de ${pct(P.abstencao.centro)} e brancos e nulos na proporção do 1º turno, seriam cerca de ${curto(validos)}${deQtd(validos)} votos válidos. A estimativa central daria uma diferença de ${curto(dif)}${deQtd(dif)} votos.</p>`;
+}
+
 function blocoTopo(ctx) {
   const c = P.combinado;
   const f = c.centro, l = 100 - c.centro;
   const fotos = ctx.fotos();
-  const s = ctx.pres?.baseline?.summary;
-  let votos = '';
-  if (s?.eleitores?.te && s.votos?.vv && s.eleitores.c) {
-    const comp = s.eleitores.te * (1 - P.abstencao.centro / 100);
-    const validos = comp * (s.votos.vv / s.eleitores.c);
-    votos = `<p class="nota">Em votos: com ${curto(s.eleitores.te)}${deQtd(s.eleitores.te)} eleitores, abstenção de ${pct(P.abstencao.centro)} e brancos e nulos na proporção do 1º turno, seriam cerca de ${curto(validos)}${deQtd(validos)} votos válidos. A estimativa central daria uma diferença de ${curto(Math.abs(2 * f - 100) / 100 * validos)}${deQtd(Math.abs(2 * f - 100) / 100 * validos)} votos.</p>`;
-  }
+  const votos = '';
   return `<div class="prev-topo">
     <div class="duelo">${cabecaCandidato(NOME_F, CA, fotos.f, 'a')}<div class="pct">${fmtPct(f, 1)}<small>%</small></div></div>
       ${cabecaCandidato(NOME_L, CB, fotos.l, 'b')}<div class="pct">${fmtPct(l, 1)}<small>%</small></div></div></div>
@@ -64,20 +68,19 @@ function blocoTopo(ctx) {
       <div><div class="r">Chance de vitória no modelo</div><div class="n"><span style="color:${CA}">${fmtPct(c.probFlavio * 100, 0)}%</span> <small>${esc(NOME_F.split(' ')[0])}</small> · <span style="color:${CB}">${fmtPct(c.probLula * 100, 0)}%</span> <small>${esc(NOME_L)}</small></div>
         <div class="chance"><span style="width:${c.probFlavio * 100}%;background:${CA}"></span><span style="flex:1;background:${CB}"></span></div></div>
       <div><div class="r">Faixa provável (80%)</div><div class="n">${fmtPct(c.int80[0], 1)} a ${fmtPct(c.int80[1], 1)}<small>% para ${esc(NOME_F.split(' ')[0])}</small></div><div class="s">Com 95%: ${fmtPct(c.int95[0], 1)} a ${fmtPct(c.int95[1], 1)}%</div></div>
-      <div><div class="r">Abstenção esperada</div><div class="n">${fmtPct(P.abstencao.centro, 1)}<small>%</small></div><div class="s">${fmtPct(P.abstencao.faixa[0], 1)} a ${fmtPct(P.abstencao.faixa[1], 1)}% pelo histórico</div></div>
     </div>
     ${votos}
   </div>`;
 }
 
-function blocoMargem() {
+function blocoMargem(votos = '') {
   const fs = P.combinado.faixas;
   const max = Math.max(...fs.map((f) => f.prob));
   const linhas = fs.map((f) => {
     const cor = f.de >= 0 ? CA : CB;
     return `<div class="barra-h"><span class="rot">${esc(f.rotulo)}</span><span class="tr"><i style="width:${(f.prob / max) * 100}%;background:${cor}"></i></span><span class="v">${f.prob < 0.005 ? '<1' : fmtPct(f.prob * 100, 0)}%</span></div>`;
   }).join('');
-  return `<section><h2>Por quanto</h2><p class="intro">Chance de cada faixa de diferença em votos válidos, segundo a previsão combinada. Diferença de 5 pp equivale a 52,5% contra 47,5%.</p><div class="barras-h">${linhas}</div></section>`;
+  return `<section><h2>Por quanto</h2><p class="intro">Chance de cada faixa de diferença em votos válidos, segundo a previsão combinada. Diferença de 5 pp equivale a 52,5% contra 47,5%.</p><div class="barras-h">${linhas}</div>${votos}</section>`;
 }
 
 function blocoModelos() {
@@ -121,12 +124,12 @@ function blocoPesquisas() {
     const fv = p.flavioValido, lv = p.lulaValido;
     const cor = fv == null ? 'inherit' : fv >= 50 ? CA : CB;
     const fora = !p.depois1T ? '' : noModelo.has(p) ? '' : '<small>substituída por outra mais recente do mesmo instituto</small>';
-    return `<tr class="${p.depois1T && noModelo.has(p) ? '' : 'antes'}"><td>${esc(p.instituto)}<small>${esc(p.registro)}</small>${fora}</td><td>${esc(p.campo)}</td><td class="n">${fmtInt(p.amostra)}</td>
-      <td class="n">${p.flavio == null ? '–' : fmtPct(p.flavio, 1)}</td><td class="n">${p.lula == null ? '–' : fmtPct(p.lula, 1)}</td>
-      <td class="n forte" style="color:${cor}">${fv == null ? '–' : `${fmtPct(fv, 1)} a ${fmtPct(lv, 1)}`}</td><td>${celulaFonte(p)}</td></tr>`;
+    return `<tr class="${p.depois1T && noModelo.has(p) ? '' : 'antes'}"><td>${esc(p.instituto)}<small class="so-cel">campo ${esc(p.campo)}</small><small>${esc(p.registro)}</small>${fora}</td><td class="opc">${esc(p.campo)}</td><td class="n opc">${fmtInt(p.amostra)}</td>
+      <td class="n opc">${p.flavio == null ? '–' : fmtPct(p.flavio, 1)}</td><td class="n opc">${p.lula == null ? '–' : fmtPct(p.lula, 1)}</td>
+      <td class="n forte" style="color:${cor}">${fv == null ? '–' : `${fmtPct(fv, 1)} a ${fmtPct(lv, 1)}`}</td><td class="opc">${celulaFonte(p)}</td></tr>`;
   }).join('');
-  return `<section><h2>As pesquisas do 2º turno</h2><p class="intro">Levantamentos registrados no TSE, com o número de registro. Em cinza, os que não entram no modelo: os feitos antes do 1º turno e os substituídos por uma pesquisa mais nova do mesmo instituto. "Válidos" é como o instituto divulgou, sem brancos, nulos e indecisos. Pesquisas novas entram sozinhas quando estão no cadastro oficial do TSE e dois veículos diferentes publicam os mesmos números.</p>
-    <div class="tabela-rolar"><table class="tabela"><thead><tr><th>Instituto</th><th>Campo</th><th class="n">Entrevistas</th><th class="n">${esc(NOME_F.split(' ')[0])}</th><th class="n">${esc(NOME_L)}</th><th class="n">Válidos</th><th>Fonte</th></tr></thead><tbody>${linhas}</tbody></table></div></section>`;
+  return `<section><h2>Pesquisas</h2><p class="intro">Nacionais, registradas no TSE. Em cinza, as que não entram no modelo.</p>
+    <div class="tabela-rolar"><table class="tabela"><thead><tr><th>Instituto</th><th class="opc">Campo</th><th class="n opc">Entrevistas</th><th class="n opc">${esc(NOME_F.split(' ')[0])}</th><th class="n opc">${esc(NOME_L)}</th><th class="n">Válidos</th><th class="opc">Fonte</th></tr></thead><tbody>${linhas}</tbody></table></div></section>`;
 }
 
 const diaCurto = (iso) => { const [, m, d] = iso.split('-').map(Number); return `${d}/${m}`; };
@@ -134,7 +137,8 @@ const diaCurto = (iso) => { const [, m, d] = iso.split('-').map(Number); return 
 /** A previsão combinada dia a dia, refeita só com as pesquisas já divulgadas em cada dia. */
 function blocoEvolucao() {
   if (SERIE.length < 2) return '';
-  const W = 640, H = 220, ml = 40, mr = 16, mt = 12, mb = 26;
+  // Desenhado na largura da tela: no celular o texto não encolhe junto com o gráfico
+  const W = Math.round(Math.min(640, Math.max(300, document.documentElement.clientWidth - 32))), H = W < 480 ? 190 : 220, ml = 40, mr = 16, mt = 12, mb = 26;
   const vals = SERIE.flatMap((s) => s.int80);
   const lo = Math.min(46, Math.floor(Math.min(...vals) - 0.5)), hi = Math.max(54, Math.ceil(Math.max(...vals) + 0.5));
   const x = (i) => ml + (i / (SERIE.length - 1)) * (W - ml - mr);
@@ -149,12 +153,12 @@ function blocoEvolucao() {
   const pontos = SERIE.map((s, i) => `<circle cx="${x(i)}" cy="${y(s.centro)}" r="3.5" class="pto-serie" data-dica="${esc(`<b>${diaCurto(s.dia)}</b><br>${NOME_F}: ${pct(s.centro)}<br>Faixa de 80%: ${fmtPct(s.int80[0])} a ${pct(s.int80[1])}<br>Chance: ${fmtPct(s.probFlavio * 100, 0)}% ${NOME_F.split(' ')[0]}, ${fmtPct((1 - s.probFlavio) * 100, 0)}% ${NOME_L}<br>${s.pesquisas} pesquisa(s) no modelo`)}"/>`).join('');
   const u = SERIE.at(-1), p0 = SERIE[0];
   return `<section><h2>Como a previsão mudou</h2>
-    <p class="intro">A previsão combinada recalculada para cada dia, só com as pesquisas que já tinham sido divulgadas naquele dia. A linha é a estimativa central para ${esc(NOME_F)} nos votos válidos; a faixa cinza cobre 80% dos casos. Acima de 50%, ${esc(NOME_F.split(' ')[0])} vence; abaixo, ${esc(NOME_L)}.</p>
+    <p class="intro">Dia a dia, só com as pesquisas já divulgadas. Faixa cinza: 80% dos casos.</p>
     <div class="serie"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Previsão dia a dia: de ${fmtPct(p0.centro, 1)}% em ${diaCurto(p0.dia)} para ${fmtPct(u.centro, 1)}% em ${diaCurto(u.dia)}">
       ${gradeY.join('')}<polygon points="${faixa}" class="faixa"/><polyline points="${linha}" class="linha"/>${pontos}${rotX}
       <text x="${W - mr}" y="${y(50) - 6}" class="lado" style="fill:${CA}">↑ ${esc(NOME_F.split(' ')[0])}</text><text x="${W - mr}" y="${y(50) + 15}" class="lado" style="fill:${CB}">↓ ${esc(NOME_L)}</text>
     </svg></div>
-    <p class="nota">Hoje: ${pct(u.centro)} (faixa de ${fmtPct(u.int80[0])} a ${pct(u.int80[1])}), com ${u.pesquisas} pesquisa(s). Em ${diaCurto(p0.dia)}: ${pct(p0.centro)}. Os outros dois modelos não mudam de um dia para o outro; o que move a linha são as pesquisas.</p></section>`;
+    </section>`;
 }
 
 /** Próximas pesquisas no cadastro oficial do TSE (o cadastro não tem resultados). */
@@ -317,6 +321,7 @@ function blocoMetodo() {
   return `<section class="metodo"><h2>Como foi feito e o que fica de fora</h2>
     <ul class="pontos">
       <li><b>Fatos:</b> resultados oficiais das eleições de 1989 a 2026 e pesquisas registradas no TSE, com o número de registro quando disponível.</li>
+      <li><b>Pesquisas:</b> só as nacionais (pesquisa de presidente feita num estado só fica de fora) e só a mais recente de cada instituto. "Válidos" é como o instituto divulgou, sem brancos, nulos e indecisos. Pesquisas novas entram sozinhas quando estão no cadastro oficial do TSE e dois veículos diferentes publicam os mesmos números; senão, passam por aprovação.</li>
       <li><b>Estimativas:</b> os três modelos, a combinação, a abstenção e o mapa. A combinação pondera cada modelo pelo inverso da variância. Como os modelos usam dados parecidos, a incerteza combinada é a média das incertezas, e não a menor delas.</li>
       <li><b>Hipóteses:</b> os cenários de erro e o mapa por estado.</li>
       <li><b>Fora da conta:</b> pesquisas finais de 2002, 2006 e 2014 (não conseguimos conferir os números em fonte confiável), debates, fatos novos e o efeito do horário eleitoral. Com 3 eleições de pesquisas de 2º turno, o histórico de erro é curto.</li>
@@ -325,16 +330,50 @@ function blocoMetodo() {
     <h3 class="sub-h">Fontes (consultadas em ${ATUALIZADO})</h3><ul class="fontes">${lista}</ul></section>`;
 }
 
+/**
+ * Seção que abre com um clique: o título e uma linha com o principal; o resto fica dentro.
+ * Recebe o HTML de um bloco (`<section><h2>…</h2>…</section>`).
+ */
+function dobra(id, html, resumo) {
+  const m = String(html || '').match(/^\s*<section([^>]*)><h2>([\s\S]*?)<\/h2>([\s\S]*)<\/section>\s*$/);
+  if (!m) return html || '';
+  return `<details class="dobra" data-dobra="${id}"><summary><span class="dobra-t">${m[2]}</span><span class="dobra-r">${resumo}</span></summary><div class="dobra-corpo"${m[1]}>${m[3]}</div></details>`;
+}
+
 /** Monta a aba. ctx: { pres, gov, fins, premissas, ufNome, UFS, fotos } */
 export function renderPrevisoes(raiz, ctx) {
   const mapa = blocoMapa(ctx);
+  // As seções abertas continuam abertas quando a página é refeita (pesquisa nova, por exemplo)
+  const abertas = new Set([...raiz.querySelectorAll('details.dobra[open]')].map((d) => d.dataset.dobra));
+  const [mp, mh, mt] = P.modelos;
+  const provavel = [...P.combinado.faixas].sort((a, b) => b.prob - a.prob)[0];
+  const cmp = P.comparativo;
+  const ng = (blocoGovernadores(ctx).match(/<tr>/g) || []).length - 1;
   raiz.innerHTML = `<div class="prev-cab"><h1>Previsões para o 2º turno</h1>
-      <p class="intro">Estimativas de modelo, feitas com os resultados oficiais desde 1989 e com as pesquisas registradas já divulgadas. Não são pesquisa eleitoral. Histórico reunido em ${ATUALIZADO}; pesquisas novas entram automaticamente, e a previsão é refeita na hora. A eleição é em 25 de outubro.</p></div>
+      <p class="intro">Estimativa de modelo com o histórico desde 1989 e as pesquisas registradas. Não é pesquisa eleitoral.</p></div>
     ${blocoTopo(ctx)}
     <div class="prev-corpo">
-      ${blocoModelos()}${blocoEvolucao()}${blocoMargem()}${blocoPesquisas()}${blocoRegistradas()}${blocoErros()}${blocoHistoria()}${blocoTransferencia()}${mapa.html}${blocoAbstencao()}${blocoGovernadores(ctx)}${blocoMetodo()}
+      ${blocoEvolucao()}${blocoPesquisas()}
+      <section class="entenda"><h2>Entenda a previsão</h2>
+        ${dobra('modelos', blocoModelos(), `Pesquisas ${pct(mp.centro)} · transferência ${pct(mt.centro)} · histórico ${pct(mh.centro)}`)}
+        ${dobra('margem', blocoMargem(textoVotos(ctx)), `Mais provável: ${esc(provavel.rotulo)} (${fmtPct(provavel.prob * 100, 0)}%)`)}
+        ${dobra('erros', blocoErros(), `Nas últimas pesquisas de 2º turno, o PT apareceu em média ${fmtPct(mp.detalhe.vies, 1)} pp acima do resultado`)}
+        ${dobra('historia', blocoHistoria(), `O líder do 1º turno venceu ${cmp.lideresVenceram} de ${cmp.disputas} disputas desde 1989`)}
+        ${dobra('transferencia', blocoTransferencia(), `Eleitores dos eliminados: ${fmtPct(TRANSFERENCIA_2026.flavio * 100, 0)}% ${esc(NOME_F.split(' ')[0])}, ${fmtPct(TRANSFERENCIA_2026.lula * 100, 0)}% ${esc(NOME_L)}`)}
+        ${dobra('mapa', mapa.html, 'Onde cada um tende a ir melhor')}
+        ${dobra('abstencao', blocoAbstencao(), `Esperada: ${pct(P.abstencao.centro)}`)}
+        ${ng > 0 ? dobra('governadores', blocoGovernadores(ctx), `${ng} disputa${ng > 1 ? 's' : ''}, pelo cenário-base`) : ''}
+        ${REGISTRADAS.length ? dobra('registradas', blocoRegistradas(), `${fmtInt(REGISTRADAS.length)} pesquisa${REGISTRADAS.length > 1 ? 's' : ''} nacional${REGISTRADAS.length > 1 ? 'is' : ''} a caminho`) : ''}
+        ${dobra('metodo', blocoMetodo(), 'Fontes, premissas e limitações')}
+      </section>
     </div>`;
-  mapa.desenhar();
+  // O mapa só é desenhado quando a seção abre (fechada, ela não tem tamanho para medir os estados)
+  let desenhado = false;
+  const dMapa = raiz.querySelector('details[data-dobra="mapa"]');
+  const desenhar = () => { if (!desenhado && dMapa?.open) { desenhado = true; mapa.desenhar(); } };
+  dMapa?.addEventListener('toggle', desenhar);
+  for (const d of raiz.querySelectorAll('details.dobra')) if (abertas.has(d.dataset.dobra)) d.open = true;
+  desenhar();
   return mapa.dicas || {};
 }
 

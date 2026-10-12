@@ -11,7 +11,6 @@ const UF_NOME = {
   pi: 'Piauí', rj: 'Rio de Janeiro', rn: 'Rio Grande do Norte', rs: 'Rio Grande do Sul', ro: 'Rondônia', rr: 'Roraima', sc: 'Santa Catarina',
   sp: 'São Paulo', se: 'Sergipe', to: 'Tocantins',
 };
-const PESQELE = 'https://www.tse.jus.br/eleicoes/pesquisa-eleitorais/consulta-as-pesquisas-registradas';
 
 const fmtHora = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' });
 const fmtDiaChave = new Intl.DateTimeFormat('en-CA', { timeZone: TZ });
@@ -76,22 +75,15 @@ function blocoAgenda() {
   const fmt = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d, 15)); };
   const dm = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, day: 'numeric', month: 'short' });
   const ds = new Intl.DateTimeFormat('pt-BR', { timeZone: TZ, weekday: 'short' });
-  const linhas = prox.map((a) => {
+  const linhas = prox.slice(0, 4).map((a) => {
     const emCurso = a.ate && a.data <= h && a.ate >= h;
     const quando = a.data === h ? 'Hoje' : emCurso ? 'Até' : ds.format(fmt(a.data)).replace('.', '');
     const dia = emCurso ? dm.format(fmt(a.ate)) : dm.format(fmt(a.data));
-    return `<li class="ag-${a.tipo} ${a.data === h ? 'hoje' : ''}"><span class="quando"><b>${dia.replace(' de ', ' ').replace('.', '')}</b><small>${quando}</small></span>
-      <span><span class="t">${esc(a.titulo)}</span>${a.detalhe ? `<small>${esc(a.detalhe)}</small>` : ''}</span></li>`;
+    return `<li class="ag-${a.tipo} ${a.data === h ? 'hoje' : ''}"${a.detalhe ? ` title="${esc(a.detalhe)}"` : ''}><span class="quando"><b>${dia.replace(' de ', ' ').replace('.', '')}</b><small>${quando}</small></span>
+      <span><span class="t">${esc(a.titulo)}</span></span></li>`;
   }).join('');
   const fontes = [...new Set(prox.map((a) => a.fonte))].map((k) => `<a href="${esc(FONTES_AGENDA[k].url)}" target="_blank" rel="noopener">${esc(FONTES_AGENDA[k].nome.split(':')[0])}</a>`).join(', ');
-  return `<section><h2>Próximas datas</h2><ul class="agenda">${linhas}</ul><p class="nota">Datas de debates são das emissoras e podem mudar. Fontes: ${fontes}.</p></section>`;
-}
-
-function blocoPesquisas(d) {
-  const p = d.itens.filter((i) => i.etiquetas.includes('pesquisa')).slice(0, 5);
-  const lista = p.length ? `<ul class="mini">${p.map((i) => `<li><a href="${esc(i.link)}" target="_blank" rel="noopener noreferrer">${esc(i.titulo)}</a><small>${esc(i.fonte)}, ${rotuloDia(diaDe(i.data), i.data).toLowerCase()} às ${hora(i.data)}${i.registros?.length ? ` · ${esc(i.registros[0])}` : ''}</small></li>`).join('')}</ul>` : '<p class="nota">Nenhuma pesquisa nas manchetes dos últimos dias.</p>';
-  return `<section><h2>Pesquisas nas manchetes</h2>${lista}
-    <p class="nota">Toda pesquisa divulgada precisa de registro no TSE. Confira pelo número no <a href="${PESQELE}" target="_blank" rel="noopener">PesqEle</a>. A aba <a href="#previsoes">Previsões</a> usa só pesquisas já conferidas.</p></section>`;
+  return `<section><h2>Próximas datas</h2><ul class="agenda">${linhas}</ul><p class="nota">Debates podem mudar de data. Fontes: ${fontes}.</p></section>`;
 }
 
 function blocoFontes(d) {
@@ -100,16 +92,15 @@ function blocoFontes(d) {
     const tit = f.ok === false ? `Sem resposta na última leitura (${f.erro || 'erro'})` : f.ok ? 'Lido normalmente' : 'Ainda não lido';
     return `<li title="${esc(tit)}"><span class="st st-${st}"></span><span>${esc(f.nome)}</span><b>${f.itens}</b></li>`;
   }).join('');
-  return `<section><h2>Veículos</h2><ul class="veiculos">${linhas}</ul><p class="nota">Número de manchetes sobre a eleição nos últimos 7 dias. O título e o link são de cada veículo; o texto fica no site deles.</p></section>`;
+  return `<details class="dobra"><summary><span class="dobra-t">Veículos</span><span class="dobra-r">${d.fontes.length} lidos automaticamente</span></summary><div class="dobra-corpo"><ul class="veiculos">${linhas}</ul><p class="nota">Manchetes sobre a eleição nos últimos 7 dias. O título e o link são de cada veículo; o texto fica no site deles.</p></div></details>`;
 }
 
 function desenhar() {
   const d = E.dados || { fontes: [], itens: [], atualizadoEm: null };
-  const ult = d.atualizadoEm ? `Última leitura às ${hora(d.atualizadoEm)}, repetida a cada ${Math.round((d.intervaloMs || 600000) / 60000) || 1} min.` : '';
+  const ult = d.atualizadoEm ? ` Atualizado às ${hora(d.atualizadoEm)}.` : '';
   E.raiz.innerHTML = `<div class="not-cab"><h1>Notícias da eleição</h1>
-      <p class="intro">Manchetes de ${d.fontes.length} veículos sobre a eleição. A seleção é automática, por palavras-chave: pode deixar passar alguma notícia ou incluir uma fora do tema. Colunas de opinião ficam de fora. Clique para ler no site do veículo.</p>
-      <p class="nota">${ult}</p></div>
-    <div class="not-grade"><div class="not-feed">${blocoFeed(d)}</div><aside class="not-lado">${blocoAgenda()}${blocoPesquisas(d)}${blocoFontes(d)}</aside></div>`;
+      <p class="intro" title="A seleção é automática, por palavras-chave: pode deixar passar alguma notícia ou incluir uma fora do tema.">Manchetes de ${d.fontes.length} veículos, escolhidas automaticamente. Opinião fica de fora.${ult}</p></div>
+    <div class="not-grade"><div class="not-feed">${blocoFeed(d)}</div><aside class="not-lado">${blocoAgenda()}${blocoFontes(d)}</aside></div>`;
 }
 
 function ligar(raiz) {
