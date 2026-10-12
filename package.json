@@ -1,5 +1,5 @@
 {
-  "name": "eleicoes-ao-vivo",
+  "name": "voto-em-foco",
   "version": "1.0.0",
   "description": "Apuração em tempo real a partir dos arquivos oficiais do TSE e simulador de 2º turno (Presidente e Governadores) — Eleições 2026",
   "type": "module",

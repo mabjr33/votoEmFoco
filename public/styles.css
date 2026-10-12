@@ -63,7 +63,8 @@ button, input, select { font: inherit; color: inherit; }
 .topo, main, .rodape { max-width: 1180px; margin: 0 auto; padding-left: var(--e4); padding-right: var(--e4); }
 .topo { padding-top: var(--e4); }
 .topo-linha { display: flex; align-items: center; gap: var(--e3); flex-wrap: wrap; }
-.nome-site { font: 600 30px/1 var(--num); text-decoration: none; margin-right: auto; }
+.nome-site { font: 600 30px/1 var(--num); text-decoration: none; margin-right: auto; display: inline-flex; align-items: center; gap: 10px; color: inherit; }
+.nome-site img { width: 34px; height: 34px; flex: none; }
 .vistas { display: flex; gap: var(--e3); }
 .vistas a { text-decoration: none; color: var(--tinta-2); font-weight: 500; padding: 6px 0; border-bottom: 2px solid transparent; }
 .vistas a[aria-current="page"] { color: var(--tinta); border-bottom-color: var(--tinta); }

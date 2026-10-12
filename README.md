@@ -1,4 +1,4 @@
-# 2º turno 2026: apuração do TSE em tempo real e simulador de quem será eleito
+# Voto em Foco: apuração do 2º turno de 2026 em tempo real, com dados do TSE, e simulador de quem será eleito
 
 Sistema web que lê os **arquivos oficiais de divulgação do TSE** e mostra a apuração em tempo real. O diferencial é o **simulador ao vivo**: durante a contagem, ele mostra quantos votos válidos ainda faltam e quanto cada candidato precisa receber deles para vencer. Você também define como acha que esse restante vai se dividir e vê na hora quem seria eleito.
 
@@ -13,7 +13,7 @@ Visual claro e limpo, em quatro abas: Resultado, Previsões, Notícias e Simulad
 - **Simulador**: "Quem será eleito?", em votos válidos.
 - **Modo telão** (`#telao`, link ao lado das disputas): para TV ou projetor. Números grandes, só votos oficiais já totalizados, passa sozinho pelo presidente e pelos 2º turnos de governador a cada 12 s (setas do teclado trocam), relógio de Brasília e botão de tela cheia. No modo de teste, o aviso de 2º turno simulado continua na tela.
 
-O nome do site fica em `public/js/marca.js`. Hoje está "2º turno 2026", um nome provisório.
+O nome do site, **Voto em Foco**, fica em `public/js/marca.js` (e no `<title>`/tags de `public/index.html`). O ícone (`public/favicon.svg`) é inspirado nas cores da bandeira, com uma lupa e um ✓ de voto; não reproduz a bandeira (Lei 5.700/71).
 
 ## Como rodar
 

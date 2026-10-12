@@ -142,7 +142,7 @@ data: ${JSON.stringify(ev)}
     if (!cfg.modoTeste) return h;
     const aviso = 'Site em teste: o 1º turno é o real do TSE; o 2º turno é uma simulação sorteada, não é resultado nem previsão.';
     h = h.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  <meta name="robots" content="noindex, nofollow">')
-      .replace(/<title>[^<]*<\/title>/, '<title>TESTE · 2º turno simulado</title>')
+      .replace(/<title>[^<]*<\/title>/, '<title>TESTE · Voto em Foco (2º turno simulado)</title>')
       .replace(/(<meta name="description" content=")[^"]*/, `$1${aviso}`)
       .replace(/(<meta property="og:title" content=")[^"]*/, '$1TESTE · 2º turno simulado, não é resultado')
       .replace(/(<meta property="og:description" content=")[^"]*/, `$1${aviso}`)
