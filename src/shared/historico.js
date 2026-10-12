@@ -25,6 +25,10 @@ export const FONTES = {
   atlas0910: { nome: 'Gazeta do Povo: AtlasIntel do 2º turno (3 a 8/10/2026)', url: 'https://www.gazetadopovo.com.br/eleicoes/2026/pesquisa-eleitoral-2026/atlasintel-presidente-outubro-2026-segundo-turno/' },
   vox0910: { nome: 'Estado de Minas: Vox Brasil do 2º turno (5 a 7/10/2026)', url: 'https://em.com.br/politica/2026/10/7517782-pesquisa-vox-lula-tem-442-e-flavio-bolsonaro-427-no-2-turno.html' },
   cnt0310: { nome: 'Bem Paraná: CNT/MDA de 3/10/2026', url: 'https://www.bemparana.com.br/eleicoes-2026/pesquisa-cnt/amp/' },
+  cc0910: { nome: 'CartaCapital: as primeiras pesquisas do 2º turno (inclui PoderData de 8/10/2026)', url: 'https://www.cartacapital.com.br/politica/o-que-disseram-as-primeiras-pesquisas-sobre-flavio-bolsonaro-x-lula-no-2o-turno/' },
+  oeste1210: { nome: 'Revista Oeste: DataTrends do 2º turno (7 a 9/10/2026)', url: 'https://revistaoeste.com/politica/datatrends-flavio-tem-50-contra-44-de-lula-no-2o-turno/' },
+  folha1010: { nome: 'Folha de S.Paulo: Ipespe/Abrapel do 2º turno (6 a 8/10/2026)', url: 'https://www1.folha.uol.com.br/poder/2026/10/flavio-bolsonaro-tem-527-dos-votos-validos-no-2o-turno-contra-473-de-lula-diz-ipespe.shtml' },
+  tse1t2026: { nome: 'TSE: resultado do 1º turno de 2026 (arquivo oficial de divulgação)', url: 'https://resultados.tse.jus.br/' },
 };
 
 /**
@@ -81,6 +85,9 @@ export const PESQUISAS_1T_FINAIS = [
 
 /** Pesquisas do 2º turno de 2026 (Flávio Bolsonaro × Lula). valido = já em votos válidos quando o instituto divulgou. */
 export const PESQUISAS_2026_2T = [
+  { instituto: 'DataTrends', campo: '7–9/10', divulgacao: '11/10', amostra: 2000, margem: 2.19, registro: 'BR-03576/2026', flavio: 50, lula: 44, flavioValido: 53.1, lulaValido: 46.9, depois1T: true, fonte: 'oeste1210' },
+  { instituto: 'Ipespe', campo: '6–8/10', divulgacao: '10/10', amostra: 1500, margem: 2.6, registro: 'BR-00933/2026', flavio: 49, lula: 44, flavioValido: 52.7, lulaValido: 47.3, depois1T: true, fonte: 'folha1010' },
+  { instituto: 'PoderData', campo: '5–7/10', divulgacao: '8/10', amostra: 3000, margem: 1.8, registro: 'BR-08134/2026', flavio: null, lula: null, flavioValido: 53, lulaValido: 47, depois1T: true, fonte: 'cc0910' },
   { instituto: 'Datafolha', campo: '6–7/10', divulgacao: '8/10', amostra: 2520, margem: 2, registro: 'BR-02949/2026', flavio: 49, lula: 45, flavioValido: 52, lulaValido: 48, depois1T: true, fonte: 'df0810' },
   { instituto: 'AtlasIntel', campo: '3–8/10', divulgacao: '9/10', amostra: 5026, margem: 1, registro: 'BR-03663/2026', flavio: 51.1, lula: 45.7, flavioValido: 52.8, lulaValido: 47.2, depois1T: true, fonte: 'atlas0910' },
   { instituto: 'Vox Brasil', campo: '5–7/10', divulgacao: '9/10', amostra: 2100, margem: 2.15, registro: 'BR-09623/2026', flavio: 42.7, lula: 44.2, flavioValido: 49.14, lulaValido: 50.86, depois1T: true, fonte: 'vox0910' },
@@ -91,3 +98,28 @@ export const PESQUISAS_2026_2T = [
 
 /** Para onde dizem ir os eleitores de Cury, Renan Santos, Caiado e Zema (Datafolha, 6 e 7/10/2026). */
 export const TRANSFERENCIA_2026 = { flavio: 0.46, lula: 0.32, brancoNulo: 0.15, outros: 0.07, fonte: 'df0810' };
+
+/** Os demais candidatos no 1º turno de 2026: % dos votos válidos no arquivo oficial do TSE (data/tse-1turno). */
+export const ELIMINADOS_2026 = [
+  { n: '70', nome: 'Augusto Cury', partido: 'AVANTE', pct: 2.8907 },
+  { n: '14', nome: 'Renan Santos', partido: 'MISSÃO', pct: 2.2430 },
+  { n: '55', nome: 'Ronaldo Caiado', partido: 'PSD', pct: 2.1837 },
+  { n: '30', nome: 'Zema', partido: 'NOVO', pct: 0.2737 },
+  { n: '80', nome: 'Samara', partido: 'UP', pct: 0.1030 },
+  { n: '16', nome: 'Hertz Dias', partido: 'PSTU', pct: 0.0361 },
+  { n: '27', nome: 'Clariana Barão', partido: 'DC', pct: 0.0336 },
+  { n: '21', nome: 'Edmilson Costa', partido: 'PCB', pct: 0.0190 },
+  { n: '35', nome: 'Wilson Grassi', partido: 'DEMOCRATA', pct: 0.0141 },
+  { n: '29', nome: 'Rui Costa Pimenta', partido: 'PCO', pct: 0.0126 },
+];
+
+/**
+ * Pesquisas feitas depois do 1º turno sobre o voto de quem escolheu os eliminados. Fração que diz
+ * votar em cada finalista; o resto é branco, nulo, indeciso ou abstenção.
+ * geral: vale para todos os eliminados. porCandidato: pelo número do candidato no TSE.
+ */
+export const TRANSFERENCIAS_2026 = [
+  { id: 'datafolha', instituto: 'Datafolha', campo: '6–8/10', fonte: 'df0810', descricao: 'eleitores de Cury, Renan Santos, Caiado e Zema, juntos', geral: { flavio: 0.46, lula: 0.32 } },
+  { id: 'ipespe', instituto: 'Ipespe', campo: '6–8/10', fonte: 'folha1010', descricao: 'eleitores de Cury, Caiado e Renan Santos, separados',
+    porCandidato: { 70: { flavio: 0.50, lula: 0.29 }, 55: { flavio: 0.56, lula: 0.15 }, 14: { flavio: 0.36, lula: 0.20 } } },
+];

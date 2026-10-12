@@ -267,7 +267,8 @@ test('modelo: só a pesquisa mais recente de cada instituto', () => {
 test('série diária: cada dia só com as pesquisas já divulgadas', () => {
   const s = serieDiaria({ ate: '2026-10-12' });
   assert.deepEqual(s.map((d) => d.dia), ['2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11', '2026-10-12']);
-  assert.deepEqual(s.map((d) => d.pesquisas), [1, 3, 3, 3, 3]);
+  // 8/10 Datafolha e PoderData; 9/10 AtlasIntel e Vox; 10/10 Ipespe; 11/10 DataTrends
+  assert.deepEqual(s.map((d) => d.pesquisas), [2, 4, 5, 6, 6]);
   const so8 = PESQUISAS_2026_2T.filter((p) => !p.depois1T || p.divulgacao === '8/10');
   assert.equal(s[0].centro, previsoes({ pesquisas: so8 }).combinado.centro);
   assert.equal(s.at(-1).centro, previsoes().combinado.centro);

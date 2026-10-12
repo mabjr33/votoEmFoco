@@ -1,7 +1,7 @@
 // Aba Previsões: histórico das eleições presidenciais, erro das pesquisas e modelos para o 2º turno de 2026.
 // Os cálculos ficam em /shared/previsao.js (testados). Aqui só se monta a página.
 import { simulate, simulateWithUncertainty, calibrateSwing } from '/shared/engine.js';
-import { FONTES, ELEICOES, PESQUISAS_2026_2T, TRANSFERENCIA_2026, ATUALIZADO } from '/shared/historico.js';
+import { FONTES, ELEICOES, PESQUISAS_2026_2T, TRANSFERENCIAS_2026, ELIMINADOS_2026, ATUALIZADO } from '/shared/historico.js';
 import { previsoes, erroPorAno, normCdf, serieDiaria, maisRecentePorInstituto } from '/shared/previsao.js';
 import { esc, fmtPct, fmtInt, curto, deQtd, normalizar, avatar } from './util.js';
 import { corPartido } from './partidos.js';
@@ -100,14 +100,14 @@ function blocoModelos() {
     <p class="intro">Percentual de ${esc(NOME_F)} nos votos válidos em cada modelo. O ponto é a estimativa central; a faixa cobre 80% dos casos. À direita da linha central, ${esc(NOME_F.split(' ')[0])} vence; à esquerda, ${esc(NOME_L)}.</p>
     <div class="filas">
       ${linha(mp, 'Pesquisas corrigidas', `peso ${peso('pesquisas')}% na combinação`)}
-      ${linha(mt, 'Transferência declarada', `peso ${peso('transferencia')}%`)}
+      ${linha(mt, 'Transferência dos eliminados', `peso ${peso('transferencia')}%`)}
       ${linha(mh, 'Padrão histórico', `peso ${peso('historico')}%`)}
       ${linha({ centro: P.combinado.centro, sd: P.combinado.sd }, 'Previsão combinada', 'média ponderada', true)}
       ${eixo(lo, hi, 4)}
     </div>
     <div class="explica-grade">
       <div><h3>Pesquisas corrigidas</h3><p>Média das ${dp.usadas.length} pesquisas de 2º turno feitas depois do 1º turno, a mais recente de cada instituto (${dp.usadas.map((u) => `${esc(u.instituto)} ${fmtPct(u.flavio, 1)}%`).join(', ')}) = ${pct(dp.bruto, 2)}. Nas últimas pesquisas de 2010, 2018 e 2022 (${dp.nErros} levantamentos), o candidato do PT apareceu em média ${fmtPct(dp.vies, 2)} pp acima do resultado. Somando essa correção, ${pct(mp.centro, 2)}. A incerteza junta a variação desse erro (${fmtPct(dp.sdErro, 1)} pp) com 1,5 pp pelas duas semanas até a eleição.</p></div>
-      <div><h3>Transferência declarada</h3><p>No 1º turno, os demais candidatos tiveram ${pct(dt.outros, 2)} dos válidos. Segundo o Datafolha, ${fmtPct(dt.transf.flavio * 100, 0)}% desses eleitores dizem votar em ${esc(NOME_F.split(' ')[0])}, ${fmtPct(dt.transf.lula * 100, 0)}% em ${esc(NOME_L)} e ${fmtPct(dt.transf.brancoNulo * 100, 0)}% em branco ou nulo. Somando aos votos do 1º turno: ${pct(dt.flavio, 2)} contra ${pct(dt.lula, 2)}, ou ${pct(mt.centro, 2)} dos válidos. Supõe que quem votou nos dois finalistas repete o voto. A incerteza de 2 pp é uma premissa.</p></div>
+      <div><h3>Transferência dos eliminados</h3><p>No 1º turno, os demais candidatos tiveram ${pct(dt.outros, 2)} dos válidos. O modelo soma aos votos de cada finalista a parte desses eleitores que vai para ele, em ${dt.leituras.length} leituras: ${dt.leituras.map((l) => `${esc(l.nome)} ${pct(l.centro)}`).join(', ')}. A média dá ${pct(mt.centro, 2)}. Supõe que quem votou nos dois finalistas repete o voto. A incerteza junta 2 pp de premissa com a diferença entre as leituras (${fmtPct(dt.sdLeituras, 1)} pp).</p></div>
       <div><h3>Padrão histórico</h3><p>De um turno para o outro, a vantagem do líder entre os dois finalistas costuma encolher: na mediana de 1989 a 2022, sobrou ${fmtPct(dh.k * 100, 0)}% dela. Em 2026, ${esc(NOME_F.split(' ')[0])} teve ${pct(dh.s1, 2)} entre os dois, o que leva a ${pct(mh.centro, 2)}. Pesa pouco porque varia muito: em 2006, Lula ampliou a vantagem e passou de ${pct(dh.pontos.find((p) => p.ano === 2006).s1, 1)} para ${pct(dh.pontos.find((p) => p.ano === 2006).s2, 1)}.</p></div>
     </div></section>`;
 }
@@ -229,13 +229,21 @@ function blocoHistoria() {
 }
 
 function blocoTransferencia() {
-  const t = TRANSFERENCIA_2026;
-  const partes = [[NOME_F, t.flavio, CA], [NOME_L, t.lula, CB], ['Branco ou nulo', t.brancoNulo, 'var(--tinta-3)'], ['Outras respostas', t.outros, 'var(--vazio)']];
+  const mt = P.modelos.find((m) => m.id === 'transferencia'), dt = mt.detalhe;
+  const f1 = NOME_F.split(' ')[0];
+  const linhas = dt.leituras.map((l) => {
+    const cor = l.centro >= 50 ? CA : CB;
+    const origem = l.fonte ? `${fonte(l.fonte)}, ${esc(l.campo)}` : 'regra do simulador';
+    return `<tr><td><b>${esc(l.nome)}</b><small>${esc(l.descricao)}${l.cobertura < 100 ? ` (cobre ${fmtPct(l.cobertura, 0)}% desses votos; o resto segue o Datafolha)` : ''}</small></td>
+      <td class="n opc">${fmtPct(l.flavio, 1)}</td><td class="n opc">${fmtPct(l.lula, 1)}</td><td class="n forte" style="color:${cor}">${pct(l.centro)}</td><td class="opc">${origem}</td></tr>`;
+  }).join('');
+  const t = TRANSFERENCIAS_2026.find((x) => x.porCandidato);
+  const porCand = t ? ELIMINADOS_2026.filter((c) => t.porCandidato[c.n]).map((c) => `${esc(c.nome)}: ${fmtPct(t.porCandidato[c.n].flavio * 100, 0)}% ${esc(f1)}, ${fmtPct(t.porCandidato[c.n].lula * 100, 0)}% ${esc(NOME_L)}`).join('; ') : '';
   return `<section><h2>Para onde vão os votos dos eliminados</h2>
-    <p class="intro">Eleitores de Cury, Renan Santos, Caiado e Zema no 1º turno, segundo o Datafolha de 6 e 7 de outubro. Juntos, esses candidatos e os demais tiveram ${pct(P.modelos[2].detalhe.outros, 2)} dos votos válidos.</p>
-    <div class="composicao alta">${partes.map(([, v, c]) => `<span style="flex:${v};background:${c}"></span>`).join('')}</div>
-    <div class="legenda">${partes.map(([n, v, c]) => `<span>${quad(c)}${esc(n)} <b>${fmtPct(v * 100, 0)}%</b></span>`).join('')}</div>
-    <p class="nota" style="margin-top:8px">Fonte: ${fonte(t.fonte)}.</p></section>`;
+    <p class="intro">Os demais candidatos tiveram ${pct(dt.outros, 2)} dos votos válidos no 1º turno. Três leituras de para onde vão esses votos, somados aos de cada finalista:</p>
+    <div class="tabela-rolar"><table class="tabela"><thead><tr><th>Leitura</th><th class="n opc">${esc(f1)}</th><th class="n opc">${esc(NOME_L)}</th><th class="n">${esc(f1)} nos válidos</th><th class="opc">Fonte</th></tr></thead><tbody>${linhas}</tbody></table></div>
+    ${porCand ? `<p class="nota" style="margin-top:8px">Ipespe, por candidato: ${porCand}.</p>` : ''}
+    <p class="nota">Média das leituras: ${pct(mt.centro)}. O que falta para 100% em cada pesquisa é branco, nulo, indeciso ou abstenção.</p></section>`;
 }
 
 function blocoMapa(ctx) {
@@ -317,7 +325,7 @@ function blocoGovernadores(ctx) {
 }
 
 function blocoMetodo() {
-  const usadas = new Set(['bpmoney', 'tse2018', 'ihu2018', 'cf2014', 'cf2022', 'pp2026', 'abst2026', 'abstAB', 'abstC24', 'opovoAbst', 'wiki2010', 'wiki2018', 'wiki2022', 'df0310', 'quaest0310', 'rtbd0110', 'df0810', 'atlas0910', 'vox0910', 'cnt0310']);
+  const usadas = new Set(['bpmoney', 'tse2018', 'ihu2018', 'cf2014', 'cf2022', 'pp2026', 'abst2026', 'abstAB', 'abstC24', 'opovoAbst', 'wiki2010', 'wiki2018', 'wiki2022', 'df0310', 'quaest0310', 'rtbd0110', 'df0810', 'atlas0910', 'vox0910', 'cnt0310', 'cc0910', 'oeste1210', 'folha1010', 'tse1t2026']);
   const lista = [...usadas].filter((k) => FONTES[k]).map((k) => `<li><a href="${esc(FONTES[k].url)}" target="_blank" rel="noopener">${esc(FONTES[k].nome)}</a></li>`).join('');
   return `<section class="metodo"><h2>Como foi feito e o que fica de fora</h2>
     <ul class="pontos">
@@ -362,7 +370,7 @@ export function renderPrevisoes(raiz, ctx) {
         ${dobra('margem', blocoMargem(textoVotos(ctx)), `Mais provável: ${esc(provavel.rotulo)} (${fmtPct(provavel.prob * 100, 0)}%)`)}
         ${dobra('erros', blocoErros(), `Nas últimas pesquisas de 2º turno, o PT apareceu em média ${fmtPct(mp.detalhe.vies, 1)} pp acima do resultado`)}
         ${dobra('historia', blocoHistoria(), `O líder do 1º turno venceu ${cmp.lideresVenceram} de ${cmp.disputas} disputas desde 1989`)}
-        ${dobra('transferencia', blocoTransferencia(), `Eleitores dos eliminados: ${fmtPct(TRANSFERENCIA_2026.flavio * 100, 0)}% ${esc(NOME_F.split(' ')[0])}, ${fmtPct(TRANSFERENCIA_2026.lula * 100, 0)}% ${esc(NOME_L)}`)}
+        ${dobra('transferencia', blocoTransferencia(), `${mt.detalhe.leituras.length} leituras (Datafolha, Ipespe, perfil dos partidos): ${pct(mt.centro)} para ${esc(NOME_F.split(' ')[0])}`)}
         ${dobra('mapa', mapa.html, 'Onde cada um tende a ir melhor')}
         ${dobra('abstencao', blocoAbstencao(), `Esperada: ${pct(P.abstencao.centro)}`)}
         ${ng > 0 ? dobra('governadores', blocoGovernadores(ctx), `${ng} disputa${ng > 1 ? 's' : ''}, pelo cenário-base`) : ''}

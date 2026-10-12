@@ -101,12 +101,12 @@ O resultado é recalculado a cada movimento e a cada nova atualização do TSE.
 
 A aba **Previsões** junta fatos e estimativas, sempre separados na tela. Os dados e as fontes estão em `src/shared/historico.js` (reunidos em 11/10/2026). As contas estão em `src/shared/previsao.js`, coberto por `test/previsao.test.js`.
 
-| O quê | Como | Resultado (11/10/2026) |
+| O quê | Como | Resultado (12/10/2026) |
 |---|---|---|
-| Pesquisas corrigidas | Média das 3 pesquisas de 2º turno pós-1º turno (Datafolha, AtlasIntel, Vox Brasil) + erro médio das últimas pesquisas de 2º turno em 2010, 2018 e 2022 (PT superestimado em 0,83 pp, 13 pesquisas) | Flávio 52,1% (±2,0) |
-| Transferência declarada | 1º turno + divisão dos eleitores dos eliminados segundo o Datafolha (46% Flávio, 32% Lula) | Flávio 51,5% (±2,0, premissa) |
+| Pesquisas corrigidas | Média das 6 pesquisas nacionais de 2º turno pós-1º turno, a mais recente de cada instituto (DataTrends, Ipespe, PoderData, Datafolha, AtlasIntel, Vox Brasil: 52,1%) + erro médio das últimas pesquisas de 2º turno em 2010, 2018 e 2022 (PT superestimado em 0,83 pp, 13 pesquisas) | Flávio 53,0% (±2,0) |
+| Transferência dos eliminados | 1º turno + média de três leituras de para onde vão os 7,81% dos demais: Datafolha 6–8/10, todos juntos (46% Flávio, 32% Lula) = 51,5%; Ipespe 6–8/10, por candidato (Cury 50/29, Caiado 56/15, Renan 36/20) = 52,0%; perfil dos partidos (regra do simulador) = 51,9% | Flávio 51,8% (±2,0: premissa + discordância entre leituras) |
 | Padrão histórico | Mediana de quanto da vantagem do líder (entre os dois) sobra no 2º turno, 1989 a 2022 (46%) | Flávio 50,5% (±4,3) |
-| Combinação | Média ponderada pelo inverso da variância; incerteza = média ponderada dos desvios (conservadora, porque os modelos se correlacionam) | Flávio 51,7%, faixa de 80% 48,9 a 54,5; chance de 78% no modelo |
+| Combinação | Média ponderada pelo inverso da variância; incerteza = média ponderada dos desvios (conservadora, porque os modelos se correlacionam) | Flávio 52,2%, faixa de 80% 49,4 a 55,0; chance de 84% no modelo |
 | Abstenção | Variação média do 1º para o 2º turno, 2002 a 2022 (+1,77 pp) | 22,9% (20,7 a 24,5) |
 | Mapa provável | Cenário-base do simulador deslocado por igual até bater com a combinação; chance por estado com ±1,5 pp extra | por estado |
 | Governadores | Só o cenário-base do simulador (sem pesquisas estaduais reunidas) | por estado |

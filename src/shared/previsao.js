@@ -8,8 +8,9 @@
 // de 2026 (Flávio Bolsonaro).
 
 import {
-  ELEICOES, PESQUISAS_2T_FINAIS, PESQUISAS_1T_FINAIS, PESQUISAS_2026_2T, TRANSFERENCIA_2026,
+  ELEICOES, PESQUISAS_2T_FINAIS, PESQUISAS_1T_FINAIS, PESQUISAS_2026_2T, TRANSFERENCIAS_2026, ELIMINADOS_2026,
 } from './historico.js';
+import { suggestedFlow } from './presets.js';
 
 export const partilha = (a, b) => (a + b > 0 ? (100 * a) / (a + b) : 50);
 export const media = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
@@ -174,20 +175,46 @@ export function modeloHistorico() {
 }
 
 /**
- * Modelo T — transferência declarada: soma aos votos do 1º turno a parte dos eleitores dos
- * eliminados que diz votar em cada finalista (Datafolha). Supõe que os eleitores de Flávio e Lula
- * repetem o voto. Incerteza de 2 pp é premissa (não há histórico de acerto dessa pergunta).
+ * Modelo T — transferência dos eliminados. Soma aos votos do 1º turno a parte dos eleitores dos
+ * demais candidatos que vai para cada finalista, em três leituras independentes:
+ *   - Datafolha (6–8/10): os eleitores dos eliminados, juntos;
+ *   - Ipespe (6–8/10): candidato por candidato (quem não foi perguntado usa o Datafolha);
+ *   - perfil dos partidos: a regra do simulador (proximidade ideológica, 70% votando num finalista),
+ *     que cobre também quem nenhuma pesquisa perguntou.
+ * O centro é a média das leituras. Supõe que os eleitores de Flávio e Lula repetem o voto.
+ * Incerteza: 2 pp de premissa (não há histórico de acerto dessa pergunta) somados à
+ * discordância entre as leituras.
  */
-export function modeloTransferencia({ transf = TRANSFERENCIA_2026, sd = 2 } = {}) {
+export function modeloTransferencia({ leituras = TRANSFERENCIAS_2026, eliminados = ELIMINADOS_2026, sdPremissa = 2, engaj = 0.7 } = {}) {
   const e = eleicao(2026);
-  const outros = 100 - e.lider.t1 - e.segundo.t1;
-  const f = e.lider.t1 + transf.flavio * outros;
-  const l = e.segundo.t1 + transf.lula * outros;
+  const outros = eliminados.reduce((s, c) => s + c.pct, 0);
+  const base = leituras.find((l) => l.geral)?.geral || { flavio: 0.5, lula: 0.5 };
+  const aplicar = (fracao) => {
+    let f = e.lider.t1, l = e.segundo.t1, coberto = 0;
+    for (const c of eliminados) {
+      const t = fracao(c);
+      if (t.proprio) coberto += c.pct;
+      f += c.pct * t.flavio; l += c.pct * t.lula;
+    }
+    return { flavio: r2(f), lula: r2(l), centro: r2(partilha(f, l)), cobertura: r2((100 * coberto) / outros) };
+  };
+  const resultado = [
+    ...leituras.map((L) => ({
+      id: L.id, nome: L.instituto, campo: L.campo, fonte: L.fonte, descricao: L.descricao,
+      ...aplicar((c) => (L.porCandidato?.[c.n] ? { ...L.porCandidato[c.n], proprio: true } : L.geral ? { ...L.geral, proprio: true } : base)),
+    })),
+    {
+      id: 'perfil', nome: 'Perfil dos partidos', descricao: `proximidade ideológica, com ${Math.round(engaj * 100)}% votando num finalista (premissa do simulador)`,
+      ...aplicar((c) => { const s = suggestedFlow(c.partido, e.lider.partido, e.segundo.partido, { engaj }); return { flavio: s.A, lula: s.B, proprio: true }; }),
+    },
+  ];
+  const centros = resultado.map((x) => x.centro);
+  const sdLeituras = desvio(centros);
   return {
     id: 'transferencia',
-    nome: 'Transferência declarada dos eliminados',
-    centro: r2(partilha(f, l)), sd,
-    detalhe: { outros: r2(outros), flavio: r2(f), lula: r2(l), transf },
+    nome: 'Transferência dos eliminados',
+    centro: r2(media(centros)), sd: r2(Math.sqrt(sdPremissa ** 2 + sdLeituras ** 2)),
+    detalhe: { outros: r2(outros), leituras: resultado, sdLeituras: r2(sdLeituras), sdPremissa },
   };
 }
 

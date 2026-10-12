@@ -36,9 +36,11 @@ test('erro do 1º turno de 2026: pesquisas superestimaram Lula', () => {
 
 test('modelo de pesquisas: média pós-1º turno + viés histórico', () => {
   const m = modeloPesquisas();
-  perto(m.detalhe.bruto, 51.31);
+  // (53,1 + 52,7 + 53 + 52 + 52,8 + 49,14) / 6, a mais recente de cada instituto
+  perto(m.detalhe.bruto, 52.12);
   perto(m.detalhe.vies, 0.83);
-  perto(m.centro, 52.14);
+  perto(m.centro, 52.95);
+  assert.equal(m.detalhe.usadas.length, 6);
   assert.ok(m.sd > 1.5 && m.sd < 2.5);
 });
 
@@ -49,12 +51,31 @@ test('modelo histórico: mediana de k e o líder vence', () => {
   assert.ok(m.sd > 3);
 });
 
-test('modelo de transferência: 7,81% dos eliminados', () => {
+test('modelo de transferência: três leituras sobre os 7,81% dos eliminados', () => {
   const m = modeloTransferencia();
   perto(m.detalhe.outros, 7.81);
-  perto(m.detalhe.flavio, 50.62);
-  perto(m.detalhe.lula, 47.66);
-  perto(m.centro, 51.51);
+  const [df, ip, perfil] = m.detalhe.leituras;
+  // Datafolha: 47,03 + 0,46 × 7,81 contra 45,16 + 0,32 × 7,81
+  assert.equal(df.id, 'datafolha');
+  perto(df.flavio, 50.62); perto(df.lula, 47.66); perto(df.centro, 51.51);
+  // Ipespe por candidato: Cury 50/29, Renan 36/20, Caiado 56/15; Zema e os nanicos seguem o Datafolha
+  assert.equal(ip.id, 'ipespe');
+  perto(ip.flavio, 50.73); perto(ip.lula, 46.93); perto(ip.centro, 51.95);
+  assert.ok(ip.cobertura > 93 && ip.cobertura < 94);
+  // Perfil dos partidos: regra do simulador (sem pesquisa); todo mundo coberto
+  assert.equal(perfil.id, 'perfil');
+  assert.equal(perfil.cobertura, 100);
+  perto(m.centro, (df.centro + ip.centro + perfil.centro) / 3);
+  // Leituras parecidas: a incerteza fica perto dos 2 pp de premissa
+  assert.ok(m.sd >= 2 && m.sd < 2.2);
+});
+
+test('modelo de transferência: leituras que discordam aumentam a incerteza', () => {
+  const opostas = [
+    { id: 'a', instituto: 'A', geral: { flavio: 0.8, lula: 0.1 } },
+    { id: 'b', instituto: 'B', geral: { flavio: 0.1, lula: 0.8 } },
+  ];
+  assert.ok(modeloTransferencia({ leituras: opostas }).sd > 3);
 });
 
 test('combinação: pesos somam 1, probabilidades fecham, faixas somam 100%', () => {
@@ -91,5 +112,5 @@ test('comparativo: líder do 1º turno venceu todas as disputas desde 1989', () 
 test('cenários de erro somam 100% e partem da média das pesquisas', () => {
   const cs = cenariosErro();
   for (const c of cs) perto(c.flavio + c.lula, 100);
-  perto(cs.find((c) => c.id === 'sem').flavio, 51.31);
+  perto(cs.find((c) => c.id === 'sem').flavio, 52.12);
 });
