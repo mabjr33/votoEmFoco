@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { num, normalizeEA20, wentToRunoff } from '../src/tse/normalize.js';
@@ -170,4 +170,34 @@ test('cliente registra a última resposta válida do TSE (base do aviso de dados
     srv.close();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('1º turno que veio junto com o site: lido do disco, sem perguntar ao TSE', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'local-'));
+  try {
+    const p = '/oficial/ele2026/6259/dados/rj/rj-c0003-e006259-u.json';
+    await mkdir(path.join(dir, 'dados', path.dirname(p)), { recursive: true });
+    await writeFile(path.join(dir, 'dados', p), JSON.stringify({ tf: 's', and: 'f', ok: 1 }));
+    // base inalcançável: se o cliente tentasse a rede, daria erro
+    const c = new TseClient({ base: 'http://127.0.0.1:9', maxRps: 8, dataDir: path.join(dir, 'cache'), dadosLocais: path.join(dir, 'dados'), eleicoes: { federal1: '6257', estadual1: '6259' } }, { log: { warn() {}, info() {} } });
+    await c.init();
+    const r = await c.getJson(p);
+    assert.equal(r.status, 'cached');
+    assert.equal(r.data.ok, 1);
+    assert.equal(c.stats.requests, 0, 'nenhuma requisição ao TSE');
+    // A configuração do TSE (aviso do 2º turno) e o 2º turno nunca vêm do disco
+    assert.equal(c.localDo1Turno('/oficial/comum/config/ele-c.json'), null);
+    assert.equal(c.localDo1Turno('/oficial/ele2026/6260/dados/rj/rj-c0003-e006260-u.json'), null);
+    assert.equal(c.localDo1Turno('/oficial/ele2026/6259/dados/../../x.json'), null);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('antes do horário da apuração, o coletor não procura os arquivos do 2º turno', async () => {
+  const col = new Collector({ inicioApuracao: '2026-10-25T16:00:00-03:00', ufs: [], eleicoes: {} }, { getJson: async () => { throw new Error('não devia consultar'); } });
+  assert.equal(col.aguardandoApuracao(Date.parse('2026-10-24T12:00:00-03:00')), true);
+  assert.equal(col.aguardandoApuracao(Date.parse('2026-10-25T16:00:01-03:00')), false);
+  col.races.set('pres', { id: 'pres', live: { available: true }, ele2: '6258', cargo: 1 });
+  col.aguardandoApuracao = () => true;
+  await col.pollLive(); // não lança: não consultou nada
+  assert.equal(new Collector({ ufs: [], eleicoes: {} }, {}).aguardandoApuracao(), false, 'sem horário configurado (modo de teste), apura na hora');
 });

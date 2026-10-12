@@ -135,8 +135,8 @@ function pessoa(c, cor, tam = 48) {
 function barra(pA, pB, ca = CA, cb = CB, { pequena = false, total = 100 } = {}) {
   return `<div class="barra ${pequena ? 'pequena' : ''}" aria-hidden="true"><span style="width:${(pA / total) * 100}%;background:${ca}"></span><span style="flex:1"></span><span style="width:${(pB / total) * 100}%;background:${cb}"></span><i class="meio"></i></div>`;
 }
-function duelo(A, B, pA, pB, vA, vB, { ca = CA, cb = CB, total = 100 } = {}) {
-  const lado = (c, cor, p, v, k) => `<div class="lado ${k}">${pessoa(c, cor)}<div class="pct">${fmtPct(p, 1)}<small>%</small></div>${v !== undefined ? `<div class="votos">${fmtInt(v)} votos</div>` : ''}</div>`;
+function duelo(A, B, pA, pB, vA, vB, { ca = CA, cb = CB, total = 100, rotulo = 'votos' } = {}) {
+  const lado = (c, cor, p, v, k) => `<div class="lado ${k}">${pessoa(c, cor)}<div class="pct">${fmtPct(p, 1)}<small>%</small></div>${v !== undefined ? `<div class="votos">${fmtInt(v)} ${rotulo}</div>` : ''}</div>`;
   return `<div class="duelo">${lado(A, ca, pA, vA, 'a')}${lado(B, cb, pB, vB, 'b')}</div>${barra(pA, pB, ca, cb, { total })}`;
 }
 function linhaCand(c, cor, pct, votos, { menor = false, sub = '' } = {}) {
@@ -272,7 +272,7 @@ function modosDisponiveis(r) {
 }
 function modoAtual(r) {
   const ok = modosDisponiveis(r).filter(([, , d]) => d).map(([k]) => k);
-  if (!S.modo || !ok.includes(S.modo)) S.modo = temVotos(r) ? (r.live.summary.secoes.pst < 100 ? 'projecao' : 'oficial') : 'simulacao';
+  if (!S.modo || !ok.includes(S.modo)) S.modo = temVotos(r) ? 'oficial' : 'simulacao'; // durante a apuração, abre nos votos já contados
   return S.modo;
 }
 
@@ -318,8 +318,8 @@ function renderPresidente() {
       pe = `<span><strong>${fmtPct(sm.secoes.pst, 1)}%</strong> das seções totalizadas. ${sm.totalFinal ? 'Resultado final do TSE.' : sm.md === 'e' ? 'Resultado matematicamente definido.' : `Ainda faltam cerca de <strong>${curto(c.esperado.faltam)}</strong>${deQtd(c.esperado.faltam)} votos válidos.`}</span>`;
     } else if (m === 'projecao') {
       const t = c.proj.total, i = c.proj.incerteza;
-      corpo = duelo(A, B, t.pctA, t.pctB, t.A, t.B);
-      pe = `<span>Projeção com <strong>${fmtPct(t.eleitoradoApuradoPct, 0)}%</strong> do eleitorado apurado. ${esc((i.pVitoriaA >= 0.5 ? A : B).nmu)} vence em ${fmtChance(Math.max(i.pVitoriaA, i.pVitoriaB))} das variações.</span>`;
+      corpo = duelo(A, B, t.pctA, t.pctB, Math.round(t.A), Math.round(t.B), { rotulo: 'votos projetados para o fim da apuração' });
+      pe = `<span>Estimativa para o fim da apuração, feita com <strong>${fmtPct(t.eleitoradoApuradoPct, 0)}%</strong> do eleitorado apurado. ${esc((i.pVitoriaA >= 0.5 ? A : B).nmu)} vence em ${fmtChance(Math.max(i.pVitoriaA, i.pVitoriaB))} das variações.</span>`;
     } else {
       const f = c.final;
       corpo = duelo(A, B, f.pA, f.pB, f.A, f.B);

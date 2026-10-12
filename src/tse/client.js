@@ -37,15 +37,37 @@ export class TseClient {
     return path.join(this.cacheDir, `${safe}.${h}.json`);
   }
 
+  /**
+   * Arquivo do 1º turno que veio junto com o site (data/tse-1turno, mesma estrutura de caminhos do
+   * TSE). O 1º turno é resultado final: com ele, o servidor não baixa ~150 arquivos do TSE a cada
+   * reinício. Vale só para as eleições de 1º turno (dados, fotos e lista de municípios); a
+   * configuração do TSE, que avisa sobre o 2º turno, continua vindo da rede.
+   */
+  localDo1Turno(p) {
+    const pasta = this.cfg.dadosLocais;
+    const { federal1, estadual1 } = this.cfg.eleicoes || {};
+    if (!pasta || !federal1) return null;
+    const re = new RegExp(`^/[^/]+/[^/]+/(${federal1}|${estadual1})/(dados|fotos|config)/`);
+    if (!re.test(p) || p.includes('..')) return null;
+    return path.join(pasta, p);
+  }
+
   async readCache(p) {
     if (this.mem.has(p)) return this.mem.get(p);
     try {
       const entry = JSON.parse(await readFile(this.cacheFile(p), 'utf8'));
       this.mem.set(p, entry);
       return entry;
-    } catch {
-      return null;
+    } catch { /* sem cache em disco */ }
+    const local = this.localDo1Turno(p);
+    if (local) {
+      try {
+        const entry = { body: JSON.parse(await readFile(local, 'utf8')), fetchedAt: null, local: true };
+        this.mem.set(p, entry);
+        return entry;
+      } catch { /* não veio junto */ }
     }
+    return null;
   }
 
   async writeCache(p, entry) {
@@ -84,6 +106,8 @@ export class TseClient {
   async getBinary(p) {
     const f = this.cacheFile(p) + '.bin';
     try { const buf = await readFile(f); const meta = JSON.parse(await readFile(f + '.meta', 'utf8')); return { status: 'cached', body: buf, type: meta.type }; } catch {}
+    const local = this.localDo1Turno(p);
+    if (local) { try { return { status: 'cached', body: await readFile(local), type: /\.png$/i.test(local) ? 'image/png' : 'image/jpeg' }; } catch { /* não veio junto */ } }
     const nf = this.notFound.get(p), falha = this.falhaFoto?.get(p);
     if ((nf && Date.now() - nf < 6 * 3600_000) || (falha && Date.now() - falha < 60_000) || this.isPaused()) return { status: 'not-found' };
     await this.takeToken();
@@ -111,6 +135,8 @@ export class TseClient {
    */
   async getJson(p, { quarantineMs = 15 * 60_000, allowNetwork = true } = {}) {
     const cached = await this.readCache(p);
+    // 1º turno que veio junto com o site: resultado final, não precisa perguntar ao TSE
+    if (cached?.local) { this.stats.skipped++; return { status: 'cached', data: cached.body, fromCache: true, fetchedAt: null }; }
     const nf = this.notFound.get(p);
     if (nf && Date.now() - nf < quarantineMs) {
       this.stats.skipped++;

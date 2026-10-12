@@ -21,12 +21,18 @@ export function loadConfig(overrides = {}) {
     port: Number(env.PORT || 3000),
     host: env.HOST || '0.0.0.0',
     dataDir: env.DATA_DIR || path.join(ROOT, 'data'),
+    // 1º turno baixado do TSE que vai junto com o site: lido do disco, sem consultar o TSE
+    dadosLocais: env.DADOS_LOCAIS || path.join(ROOT, 'data', 'tse-1turno'),
     adminToken: env.ADMIN_TOKEN || null, // código de instalação do painel (criar ou redefinir o acesso)
     adminLogin: env.ADMIN_LOGIN || null, // usuário e hash da senha do painel, gerados pelo próprio painel
     publicUrl: env.PUBLIC_URL || null,
     trustProxy: env.TRUST_PROXY === '1',
     ...overrides,
   };
+  // Os arquivos locais do 1º turno são do TSE oficial: com outra fonte (modo de teste), não se misturam
+  if (cfg.base !== file.base && !env.DADOS_LOCAIS) cfg.dadosLocais = null;
+  // O horário da apuração real não vale para o TSE de teste (que apura quando é iniciado)
+  if (cfg.base !== file.base && !overrides.inicioApuracao) cfg.inicioApuracao = null;
   // Proteção: o TSE bloqueia IPs acima de 100 req/s. Nunca passamos de 50.
   cfg.maxRps = Math.min(Math.max(1, cfg.maxRps), 50);
   cfg.pollIntervalMs = Math.max(3000, cfg.pollIntervalMs);

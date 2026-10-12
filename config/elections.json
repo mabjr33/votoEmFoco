@@ -11,6 +11,8 @@
   "exterior": "zz",
   "incluirExterior": true,
   "governador2TurnoFallback": ["ac","am","df","es","rn","to"],
+  "_inicioApuracao": "Antes disso o coletor não procura os arquivos do 2º turno (só lê a configuração do TSE): nada de 404 em série.",
+  "inicioApuracao": "2026-10-25T16:00:00-03:00",
   "pollIntervalMs": 15000,
   "configIntervalMs": 120000,
   "maxRps": 8,

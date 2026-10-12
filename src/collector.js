@@ -341,7 +341,14 @@ export class Collector extends EventEmitter {
   }
 
   // ---------- 2º turno (tempo real) ----------
+  /** Antes do horário da apuração, os arquivos do 2º turno não existem: procurá-los só geraria 404. */
+  aguardandoApuracao(agora = Date.now()) {
+    const t = Date.parse(this.cfg.inicioApuracao || '');
+    return Number.isFinite(t) && agora < t;
+  }
+
   async pollLive() {
+    if (this.aguardandoApuracao()) return;
     for (const race of this.races.values()) {
       if (!race.live.available || !race.ele2) continue;
       let changed = false;
@@ -468,6 +475,7 @@ export class Collector extends EventEmitter {
       tseSemRespostaMs: this.client.ultimoOk ? Date.now() - this.client.ultimoOk : null,
       http: this.client.stats,
       pollIntervalMs: this.cfg.pollIntervalMs,
+      apuracaoComecaEm: this.aguardandoApuracao() ? this.cfg.inicioApuracao : null,
       maxRps: this.cfg.maxRps,
     };
   }

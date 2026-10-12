@@ -19,10 +19,5 @@ services:
       # cole aqui para o acesso sobreviver aos reinícios (o plano gratuito apaga o disco).
       - key: ADMIN_LOGIN
         sync: false
-      # teste = 1º turno real + 2º turno SIMULADO, para mostrar aos amigos antes do dia 25.
-      # No dia da eleição, apague esta variável (ou troque para "producao") para usar o TSE ao vivo.
-      - key: MODO
-        value: teste
-      # Duração da apuração simulada, em segundos (recomeça do zero quando o servidor reinicia)
-      - key: MOCK_DURATION
-        value: "3600"
+      # Modo normal: 1º turno real (dos arquivos do TSE que vão junto) e 2º turno ao vivo a partir de 25/10.
+      # Para voltar a simular o 2º turno (testes), crie MODO=teste e, se quiser, MOCK_DURATION (segundos).
