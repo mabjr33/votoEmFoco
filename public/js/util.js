@@ -2,6 +2,16 @@ export const $ = (s, el = document) => el.querySelector(s);
 export const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const nf = new Intl.NumberFormat('pt-BR');
 export const fmtInt = (n) => nf.format(Math.round(n || 0));
+/**
+ * Chance (0 a 1) em texto. Previsão, projeção ou simulação nunca garante nada: acima de 99% vira
+ * "mais de 99%" e abaixo de 1%, "menos de 1%". Nunca aparece 100% nem 0%.
+ */
+export function fmtChance(p) {
+  if (!Number.isFinite(p)) return '–';
+  if (p > 0.99) return 'mais de 99%';
+  if (p < 0.01) return 'menos de 1%';
+  return `${Math.round(p * 100).toLocaleString('pt-BR')}%`;
+}
 export const fmtPct = (n, d = 1) => (Number.isFinite(n) ? n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
 export const fmtPp = (n, d = 1) => `${n > 0.0005 ? '+' : n < -0.0005 ? '−' : '±'}${fmtPct(Math.abs(n), d)}`;
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

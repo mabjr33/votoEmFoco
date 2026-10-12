@@ -3,7 +3,7 @@
 import { simulate, simulateWithUncertainty, calibrateSwing } from '/shared/engine.js';
 import { FONTES, ELEICOES, PESQUISAS_2026_2T, TRANSFERENCIAS_2026, ELIMINADOS_2026, ATUALIZADO } from '/shared/historico.js';
 import { previsoes, erroPorAno, normCdf, serieDiaria, maisRecentePorInstituto } from '/shared/previsao.js';
-import { esc, fmtPct, fmtInt, curto, deQtd, normalizar, avatar } from './util.js';
+import { esc, fmtPct, fmtChance, fmtInt, curto, deQtd, normalizar, avatar } from './util.js';
 import { corPartido } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
 
@@ -65,7 +65,7 @@ function blocoTopo(ctx) {
       ${cabecaCandidato(NOME_L, CB, fotos.l, 'b')}<div class="pct">${fmtPct(l, 1)}<small>%</small></div></div></div>
     <div class="barra" aria-hidden="true"><span style="width:${f}%;background:${CA}"></span><span style="flex:1"></span><span style="width:${l}%;background:${CB}"></span><i class="meio"></i></div>
     <div class="prev-resumo">
-      <div><div class="r">Chance de vitória no modelo</div><div class="n"><span style="color:${CA}">${fmtPct(c.probFlavio * 100, 0)}%</span> <small>${esc(NOME_F.split(' ')[0])}</small> · <span style="color:${CB}">${fmtPct(c.probLula * 100, 0)}%</span> <small>${esc(NOME_L)}</small></div>
+      <div><div class="r">Chance de vitória no modelo</div><div class="n"><span style="color:${CA}">${fmtChance(c.probFlavio)}</span> <small>${esc(NOME_F.split(' ')[0])}</small> · <span style="color:${CB}">${fmtChance(c.probLula)}</span> <small>${esc(NOME_L)}</small></div>
         <div class="chance"><span style="width:${c.probFlavio * 100}%;background:${CA}"></span><span style="flex:1;background:${CB}"></span></div></div>
       <div><div class="r">Faixa provável (80%)</div><div class="n">${fmtPct(c.int80[0], 1)} a ${fmtPct(c.int80[1], 1)}<small>% para ${esc(NOME_F.split(' ')[0])}</small></div><div class="s">Com 95%: ${fmtPct(c.int95[0], 1)} a ${fmtPct(c.int95[1], 1)}%</div></div>
     </div>
@@ -151,7 +151,7 @@ function blocoEvolucao() {
   for (let v = Math.ceil(lo / passoY) * passoY; v <= hi; v += passoY) gradeY.push(`<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" class="${v === 50 ? 'meio' : 'grade'}"/><text x="${ml - 6}" y="${y(v) + 4}" class="ey">${v}%</text>`);
   const cada = Math.max(1, Math.ceil(SERIE.length / 8));
   const rotX = SERIE.map((s, i) => (i % cada === 0 || i === SERIE.length - 1 ? `<text x="${x(i)}" y="${H - 6}" class="ex">${diaCurto(s.dia)}</text>` : '')).join('');
-  const pontos = SERIE.map((s, i) => `<circle cx="${x(i)}" cy="${y(s.centro)}" r="3.5" class="pto-serie" data-dica="${esc(`<b>${diaCurto(s.dia)}</b><br>${NOME_F}: ${pct(s.centro)}<br>Faixa de 80%: ${fmtPct(s.int80[0])} a ${pct(s.int80[1])}<br>Chance: ${fmtPct(s.probFlavio * 100, 0)}% ${NOME_F.split(' ')[0]}, ${fmtPct((1 - s.probFlavio) * 100, 0)}% ${NOME_L}<br>${s.pesquisas} pesquisa(s) no modelo`)}"/>`).join('');
+  const pontos = SERIE.map((s, i) => `<circle cx="${x(i)}" cy="${y(s.centro)}" r="3.5" class="pto-serie" data-dica="${esc(`<b>${diaCurto(s.dia)}</b><br>${NOME_F}: ${pct(s.centro)}<br>Faixa de 80%: ${fmtPct(s.int80[0])} a ${pct(s.int80[1])}<br>Chance: ${fmtChance(s.probFlavio)} ${NOME_F.split(' ')[0]}, ${fmtChance(1 - s.probFlavio)} ${NOME_L}<br>${s.pesquisas} pesquisa(s) no modelo`)}"/>`).join('');
   const u = SERIE.at(-1), p0 = SERIE[0];
   return `<section><h2>Como a previsão mudou</h2>
     <p class="intro">Dia a dia, só com as pesquisas já divulgadas. Faixa cinza: 80% dos casos.</p>
@@ -267,7 +267,7 @@ function blocoMapa(ctx) {
     const cor = pa >= 0.5 ? CA : CB;
     const forca = { a: 90, ia: 50, ind: 0, ib: 50, b: 90 }[k];
     dados[cd] = { fill: k === 'ind' ? 'var(--vazio)' : `color-mix(in oklab, ${cor} ${forca}%, var(--vazio))` };
-    dicas[cd] = `<b>${esc(ctx.ufNome(cd))}</b><br>${esc(A.nmu)} ${fmtPct(u.pctA)}%<br>${esc(B.nmu)} ${fmtPct(u.pctB)}%<br>Chance de ${esc(A.nmu)}: ${fmtPct(pa * 100, 0)}%`;
+    dicas[cd] = `<b>${esc(ctx.ufNome(cd))}</b><br>${esc(A.nmu)} ${fmtPct(u.pctA)}%<br>${esc(B.nmu)} ${fmtPct(u.pctB)}%<br>Chance de ${esc(A.nmu)}: ${fmtChance(pa)}`;
   }
   const leg = [
     ['a', `Provável ${A.nmu}`, `color-mix(in oklab, ${CA} 90%, var(--vazio))`], ['ia', `Inclina para ${A.nmu}`, `color-mix(in oklab, ${CA} 50%, var(--vazio))`],
@@ -315,7 +315,7 @@ function blocoGovernadores(ctx) {
     linhas.push(`<tr><td><b>${esc(ctx.ufNome(uf))}</b></td>
       <td>${quad(ca)}${esc(A.nmu)} <small class="em-linha">${esc(A.partido)}</small></td><td class="n">${fmtPct(a1, 1)}</td>
       <td>${quad(cb)}${esc(B.nmu)} <small class="em-linha">${esc(B.partido)}</small></td><td class="n">${fmtPct(b1, 1)}</td>
-      <td class="n forte">${fmtPct(pA, 1)} a ${fmtPct(100 - pA, 1)}</td><td class="n">${fmtPct(Math.max(ch, 1 - ch) * 100, 0)}% ${esc((ch >= 0.5 ? A : B).nmu.split(' ')[0])}</td></tr>`);
+      <td class="n forte">${fmtPct(pA, 1)} a ${fmtPct(100 - pA, 1)}</td><td class="n">${fmtChance(Math.max(ch, 1 - ch))} ${esc((ch >= 0.5 ? A : B).nmu.split(' ')[0])}</td></tr>`);
   }
   if (!linhas.length) return '';
   return `<section><h2>Governadores no 2º turno</h2>
@@ -367,7 +367,7 @@ export function renderPrevisoes(raiz, ctx) {
       ${blocoEvolucao()}${blocoPesquisas()}
       <section class="entenda"><h2>Entenda a previsão</h2>
         ${dobra('modelos', blocoModelos(), `Pesquisas ${pct(mp.centro)} · transferência ${pct(mt.centro)} · histórico ${pct(mh.centro)}`)}
-        ${dobra('margem', blocoMargem(textoVotos(ctx)), `Mais provável: ${esc(provavel.rotulo)} (${fmtPct(provavel.prob * 100, 0)}%)`)}
+        ${dobra('margem', blocoMargem(textoVotos(ctx)), `Mais provável: ${esc(provavel.rotulo)} (${fmtChance(provavel.prob)})`)}
         ${dobra('erros', blocoErros(), `Nas últimas pesquisas de 2º turno, o PT apareceu em média ${fmtPct(mp.detalhe.vies, 1)} pp acima do resultado`)}
         ${dobra('historia', blocoHistoria(), `O líder do 1º turno venceu ${cmp.lideresVenceram} de ${cmp.disputas} disputas desde 1989`)}
         ${dobra('transferencia', blocoTransferencia(), `${mt.detalhe.leituras.length} leituras (Datafolha, Ipespe, perfil dos partidos): ${pct(mt.centro)} para ${esc(NOME_F.split(' ')[0])}`)}

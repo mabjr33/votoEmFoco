@@ -1,7 +1,7 @@
 import { defaultParams, simulate, liveProjection, normFlow } from '/shared/engine.js';
 import { suggestedFlow } from '/shared/presets.js';
 import { REGIOES, pontoDePartida, cenarioFinal, situacaoVirada, mesclarHistorico } from '/shared/aovivo.js';
-import { $, $$, fmtInt, fmtPct, fmtPp, esc, clamp, curto, deQtd, parseVotos, redondo, titulo, normalizar, avatar } from './util.js';
+import { $, $$, fmtInt, fmtPct, fmtChance, fmtPp, esc, clamp, curto, deQtd, parseVotos, redondo, titulo, normalizar, avatar } from './util.js';
 import { corPartido, textoSobre } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
 import { NOME_SITE } from './marca.js';
@@ -314,7 +314,7 @@ function renderPresidente() {
     } else if (m === 'projecao') {
       const t = c.proj.total, i = c.proj.incerteza;
       corpo = duelo(A, B, t.pctA, t.pctB, t.A, t.B);
-      pe = `<span>Projeção com <strong>${fmtPct(t.eleitoradoApuradoPct, 0)}%</strong> do eleitorado apurado. ${esc((i.pVitoriaA >= 0.5 ? A : B).nmu)} vence em ${fmtPct(Math.max(i.pVitoriaA, i.pVitoriaB) * 100, 0)}% das variações.</span>`;
+      pe = `<span>Projeção com <strong>${fmtPct(t.eleitoradoApuradoPct, 0)}%</strong> do eleitorado apurado. ${esc((i.pVitoriaA >= 0.5 ? A : B).nmu)} vence em ${fmtChance(Math.max(i.pVitoriaA, i.pVitoriaB))} das variações.</span>`;
     } else {
       const f = c.final;
       corpo = duelo(A, B, f.pA, f.pB, f.A, f.B);
@@ -955,7 +955,7 @@ function atualizarSim(r, c) {
     <div class="bloco"><dl class="dados"><dt>Diferença</dt><dd>${curto(Math.abs(f.margem))}${deQtd(Math.abs(f.margem))} votos</dd><dt>Votos válidos no total</dt><dd>${fmtInt(f.validos)}</dd>
       <dt>Em relação à estimativa</dt><dd>${Math.abs(dEsp) < 0.005 ? 'igual' : `${esc(A.nmu)} ${fmtPp(dEsp, 2)} pp`}</dd></dl></div>
     <div class="bloco"><h3>Chance em ${fmtInt(i.n)} variações do que falta</h3><div class="chance"><span style="flex:${i.pVitoriaA};background:var(--a)"></span><span style="flex:${i.pVitoriaB};background:var(--b)"></span></div>
-      <dl class="dados"><dt>${esc(A.nmu)}</dt><dd>${fmtPct(i.pVitoriaA * 100, 0)}%</dd><dt>${esc(B.nmu)}</dt><dd>${fmtPct(i.pVitoriaB * 100, 0)}%</dd></dl></div>
+      <dl class="dados"><dt>${esc(A.nmu)}</dt><dd>${fmtChance(i.pVitoriaA)}</dd><dt>${esc(B.nmu)}</dt><dd>${fmtChance(i.pVitoriaB)}</dd></dl></div>
     <div class="acoes"><button type="button" class="botao-2" id="sim-reset">Recomeçar</button><button type="button" class="link" id="sim-link">Copiar link</button></div>`;
 }
 
