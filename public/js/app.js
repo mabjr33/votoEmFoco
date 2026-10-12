@@ -33,7 +33,7 @@ async function carregarRace(id) { const p = await getJSON(`/api/race/${id}`); if
 /** Pesquisas aprovadas no painel: entram nos modelos da aba Previsões. */
 async function carregarPesquisas() {
   const d = await getJSON('/api/pesquisas').catch(() => null);
-  if (d) S.pesqChave = definirPesquisasExtras(d.itens || []);
+  if (d) S.pesqChave = definirPesquisasExtras(d.itens || [], d.registradas || []);
 }
 async function carregarTudo() {
   const [status, races, endorsers, exterior, eventos] = await Promise.all([

@@ -14,6 +14,7 @@ import { Noticias } from './noticias/coletor.js';
 import { ELEICOES } from './shared/historico.js';
 import { Pesquisas } from './pesquisas.js';
 import { criarAdmin } from './admin.js';
+import { criarAutomacao } from './pesquisas-auto/automacao.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -65,14 +66,22 @@ function enviar(req, res, c, cacheControl) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-export function createApp(cfg, collector, noticias = null, { pesquisas = new Pesquisas(null), log = console } = {}) {
+const hojeSP = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+/** Pesquisas registradas no TSE com divulgação de hoje em diante (só o que o cadastro informa). */
+function proximasRegistradas(cadastro) {
+  if (!cadastro) return [];
+  return cadastro.proximas(hojeSP()).slice(0, 30)
+    .map(({ registro, instituto, inicio, fim, divulgacao, amostra }) => ({ registro, instituto, inicio, fim, divulgacao, amostra }));
+}
+
+export function createApp(cfg, collector, noticias = null, { pesquisas = new Pesquisas(null), cadastro = null, log = console } = {}) {
   const sseClients = new Set();
   const avisarTodos = (ev) => { const msg = `event: update
 data: ${JSON.stringify(ev)}
 
 `; for (const res of sseClients) res.write(msg); };
   const admin = criarAdmin({
-    token: cfg.adminToken, collector, noticias, pesquisas, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
+    token: cfg.adminToken, collector, noticias, pesquisas, cadastro, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
     aoMudarPesquisas: () => avisarTodos({ raceId: 'pesquisas' }),
   });
   // Cada conexão ao vivo segura um socket aberto: com teto, uma enxurrada de conexões não derruba o servidor
@@ -82,6 +91,8 @@ data: ${JSON.stringify(ev)}
   const jsonCache = new Map(); // rota -> corpo do último JSON enviado (reaproveitado enquanto não muda)
   const staticCache = new Map(); // arquivo -> { mtimeMs, size, corpo }
 
+  // Pesquisa que entrou sozinha (cadastro do TSE + duas reportagens): todos recalculam a previsão
+  pesquisas.on?.('mudou', () => avisarTodos({ raceId: 'pesquisas' }));
   collector.on('update', (ev) => {
     const msg = `event: update\ndata: ${JSON.stringify({ ...ev, races: collector.raceList() })}\n\n`;
     for (const res of sseClients) res.write(msg);
@@ -139,7 +150,7 @@ data: ${JSON.stringify(ev)}
       const p = url.pathname;
       if (p.startsWith('/api/admin/') && await admin(req, res, p)) return;
       if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); return res.end(); }
-      if (p === '/api/pesquisas') return sendJson(req, res, { versao: pesquisas.versao, itens: pesquisas.itens }, { maxAge: 30 });
+      if (p === '/api/pesquisas') return sendJson(req, res, { versao: pesquisas.versao, itens: pesquisas.itens, registradas: proximasRegistradas(cadastro) }, { maxAge: 30 });
 
       if (p === '/api/status') return sendJson(req, res, collector.status(), { maxAge: 2 });
       if (p === '/api/races') return sendJson(req, res, collector.raceList(), { maxAge: 2 });
@@ -199,7 +210,8 @@ export async function main(overrides = {}) {
   }) : null;
   const pesquisas = new Pesquisas(cfg.dataDir);
   await pesquisas.carregar();
-  const server = createApp(cfg, collector, noticias, { pesquisas });
+  const auto = noticias && cfg.pesquisasTse?.url && process.env.PESQUISAS_AUTO !== '0' ? criarAutomacao({ cfg, noticias, pesquisas, e26 }) : null;
+  const server = createApp(cfg, collector, noticias, { pesquisas, cadastro: auto?.cadastro });
   if (cfg.adminToken) console.log('[admin] painel em /admin.html (senha: ADMIN_TOKEN)');
   await new Promise((r) => server.listen(cfg.port, cfg.host, r));
   console.log(`[servidor] http://localhost:${cfg.port}  (fonte: ${cfg.base}/${cfg.ambiente}, polling ${cfg.pollIntervalMs / 1000}s, máx ${cfg.maxRps} req/s)`);
@@ -207,7 +219,8 @@ export async function main(overrides = {}) {
   // Espera o 1º turno carregar (até 30 s) para o filtro já conhecer os nomes dos candidatos
   if (noticias) (async () => { for (let i = 0; i < 60 && !collector.ready; i++) await new Promise((r) => setTimeout(r, 500)); noticias.start(); })();
   if (noticias) console.log(`[notícias] ${noticias.fontes.length} veículos, leitura a cada ${noticias.intervaloMs / 1000} s`);
-  const shutdown = () => { collector.stop(); noticias?.stop(); server.close(() => process.exit(0)); };
+  if (auto) { auto.start(); console.log('[pesquisas] entrada automática: cadastro do TSE a cada 6 h + reportagens de pesquisa (2 veículos com os mesmos números)'); }
+  const shutdown = () => { collector.stop(); noticias?.stop(); auto?.stop(); server.close(() => process.exit(0)); };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
   return { server, collector, noticias, cfg };

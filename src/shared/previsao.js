@@ -96,15 +96,44 @@ export function comparativo1T() {
   };
 }
 
+// Datas das pesquisas de 2026: 'AAAA-MM-DD' quando vêm do cadastro do TSE; senão, o último
+// 'd/m' do período de campo ('3–8/10' -> 8/10) ou da divulgação.
+const iso = (d, m) => `2026-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+function ultimoDiaMes(s) {
+  const ms = [...String(s || '').matchAll(/(\d{1,2})(?:\/(\d{1,2}))?/g)];
+  const mes = [...ms].reverse().find((m) => m[2])?.[2];
+  const ult = ms.at(-1);
+  return ult && mes ? iso(ult[1], ult[2] || mes) : null;
+}
+/** Último dia de campo. */
+export const fimCampo = (p) => p.fim || ultimoDiaMes(p.campo);
+/** Dia em que a pesquisa ficou pública. */
+export const dataDivulgacao = (p) => ultimoDiaMes(p.divulgacao) || fimCampo(p);
+const chaveInstituto = (p) => String(p.instituto || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/**
+ * Só a pesquisa mais recente de cada instituto (pelo fim do campo). Assim quem divulga toda
+ * semana não pesa mais na média do que quem divulga uma vez. Vale igual para todos os institutos.
+ */
+export function maisRecentePorInstituto(pesquisas) {
+  const por = new Map();
+  for (const p of pesquisas) {
+    const k = chaveInstituto(p), atual = por.get(k);
+    if (!atual || (fimCampo(p) || '') > (fimCampo(atual) || '')) por.set(k, p);
+  }
+  return pesquisas.filter((p) => por.get(chaveInstituto(p)) === p);
+}
+
 /**
  * Modelo P — média das pesquisas do 2º turno feitas após o 1º turno, corrigida pelo erro médio
  * histórico das últimas pesquisas de 2º turno (2010, 2018, 2022).
  * Incerteza: dispersão desse erro + 1,5 pp pela distância até a eleição (premissa).
  */
 export function modeloPesquisas({ pesquisas = PESQUISAS_2026_2T, distanciaPp = 1.5 } = {}) {
-  const usadas = pesquisas.filter((p) => p.depois1T).map((p) => ({
+  const usadas = maisRecentePorInstituto(pesquisas.filter((p) => p.depois1T)).map((p) => ({
     instituto: p.instituto,
     campo: p.campo,
+    registro: p.registro,
     flavio: r2(p.flavioValido ?? partilha(p.flavio, p.lula)),
   }));
   const bruto = media(usadas.map((p) => p.flavio));
@@ -241,6 +270,27 @@ export function previsaoAbstencao() {
     serie: ELEICOES.filter((e) => e.abst1 != null || e.abst2 != null)
       .map((e) => ({ ano: e.ano, abst1: e.abst1 ?? null, abst2: e.abst2 ?? null })),
   };
+}
+
+/**
+ * A previsão combinada dia a dia, recalculada só com as pesquisas que já eram públicas em cada dia.
+ * Começa no dia da primeira pesquisa pós-1º turno e vai até `ate` ('AAAA-MM-DD').
+ */
+export function serieDiaria({ pesquisas = PESQUISAS_2026_2T, ate } = {}) {
+  const pos = pesquisas.filter((p) => p.depois1T && dataDivulgacao(p));
+  if (!pos.length) return [];
+  const datas = pos.map(dataDivulgacao).sort();
+  const fim = ate && ate > datas.at(-1) ? ate : datas.at(-1);
+  const fixos = [modeloHistorico(), modeloTransferencia()];
+  const serie = [];
+  for (let d = new Date(`${datas[0]}T12:00:00Z`); d.toISOString().slice(0, 10) <= fim; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dia = d.toISOString().slice(0, 10);
+    const ate1 = pesquisas.filter((p) => !p.depois1T || (dataDivulgacao(p) && dataDivulgacao(p) <= dia));
+    const mp = modeloPesquisas({ pesquisas: ate1 });
+    const c = combinar([mp, ...fixos]);
+    serie.push({ dia, centro: c.centro, int80: c.int80, probFlavio: c.probFlavio, pesquisas: mp.detalhe.usadas.length });
+  }
+  return serie;
 }
 
 /** Todas as previsões nacionais de uma vez. pesquisas: as fixas do histórico mais as aprovadas no painel. */

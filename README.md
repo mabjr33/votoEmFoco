@@ -67,6 +67,7 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data eleicoes-ao-vivo
 | `ADMIN_TOKEN` | (vazio) | Senha do painel `/admin.html` (16+ caracteres). Sem ela, o painel não existe |
 | `PUBLIC_URL` | (vazio) | Endereço público, ex.: `https://seudominio.com.br` (prévia ao compartilhar) |
 | `TRUST_PROXY` | 0 | `1` atrás de proxy/CDN: usa o IP de `X-Forwarded-For` no limite de tentativas do painel |
+| `PESQUISAS_AUTO` | 1 | `0` desliga a entrada automática de pesquisas (cadastro do TSE + reportagens) |
 
 ## O simulador ao vivo
 
@@ -112,7 +113,20 @@ A página também mostra o erro de cada pesquisa final desde 2010, cenários "e 
 
 **Fatos que a página destaca, calculados dos dados:** o líder do 1º turno venceu as 7 disputas de 2º turno desde 1989; a diferença de 1,87 pp no 1º turno de 2026 é a menor da série; os dois finalistas somaram 92,19%, a maior soma.
 
-**Ficou de fora:** pesquisas finais de 2002, 2006 e 2014 (não deu para conferir os números em fonte confiável), 1º turno de 1989 na abstenção, debates e fatos novos. Para atualizar com novas pesquisas, acrescente linhas em `PESQUISAS_2026_2T` com `depois1T: true` e a fonte em `FONTES`; tudo é recalculado.
+**Ficou de fora:** pesquisas finais de 2002, 2006 e 2014 (não deu para conferir os números em fonte confiável), 1º turno de 1989 na abstenção, debates e fatos novos.
+
+### Pesquisas novas entram sozinhas
+
+Toda pesquisa eleitoral divulgada tem registro no TSE, mas o cadastro oficial (PesqEle) **não traz os resultados**: é feito antes do campo e guarda instituto, CNPJ, período, data de divulgação e número de entrevistas. Por isso a entrada automática junta duas coisas (`src/pesquisas-auto/`):
+
+1. **Cadastro do TSE** (`registro-tse.js`): o arquivo `pesquisa_eleitoral_2026.zip` do Portal de Dados Abertos (conjunto `pesquisas-eleitorais-2026`), consultado a cada 6 h com pedido condicional (só baixa os ~6 MB quando muda; o TSE o atualiza uma vez por dia). Ficam as pesquisas presidenciais nacionais com campo terminado a partir de 6/10.
+2. **Reportagens** (`materias.js`, `extrair.js`): as notícias etiquetadas como pesquisa de presidente são abertas uma vez cada, com pausa entre elas. O extrator só aceita frase que cita os dois finalistas e tem exatamente dois percentuais; recusa frases sobre 1º turno, pesquisa anterior, recortes (região, renda, religião…), expectativa de vitória, rejeição e transferência; ignora manchetes soltas ("leia mais"); classifica por soma (100 = válidos; até 98 = totais) e exige que totais e válidos da mesma reportagem batam.
+
+A pesquisa entra no modelo quando: está no cadastro do TSE; a reportagem cita **exatamente um** registro desse tipo (resumos com várias pesquisas ficam de fora); **dois veículos diferentes** publicaram números; e nenhum veículo diverge dos outros em mais de 0,6 ponto. Instituto, campo e entrevistas vêm do cadastro do TSE, não da reportagem. Fora disso (uma fonte só, números divergentes), a pesquisa fica no painel **já preenchida**, esperando aprovação. Uma automática removida no painel não volta sozinha.
+
+O modelo usa **a pesquisa mais recente de cada instituto**, para quem divulga toda semana não pesar mais do que os outros. A aba mostra também **como a previsão mudou dia a dia** (recalculada só com as pesquisas já divulgadas em cada dia) e as **próximas pesquisas registradas** no TSE.
+
+Para incluir uma pesquisa à mão (sem passar pelo painel), acrescente uma linha em `PESQUISAS_2026_2T` com `depois1T: true` e a fonte em `FONTES`; tudo é recalculado.
 
 Nada disso é pesquisa eleitoral. São estimativas de modelo e devem ser apresentadas assim.
 
@@ -139,7 +153,7 @@ Todos foram conferidos em 11/10/2026. A lista mistura veículos de linhas editor
 
 **Próximas datas** (`src/shared/agenda.js`) é uma lista conferida à mão, com fonte: debates na Record (11/10), Band (18/10) e Globo (23/10), prazos de propaganda e votação. Datas de debate são das emissoras e podem mudar.
 
-As pesquisas que aparecem nas manchetes **não** entram sozinhas na aba Previsões: tirar números de manchete erra fácil (votos totais × válidos, por exemplo). Para o modelo, inclua a pesquisa em `src/shared/historico.js`.
+Números de manchete não entram no modelo. Pesquisas entram pela conferência descrita em [Pesquisas novas entram sozinhas](#pesquisas-novas-entram-sozinhas): cadastro do TSE + texto de duas reportagens de veículos diferentes.
 
 | Variável | Padrão | Uso |
 |---|---|---|
@@ -175,7 +189,10 @@ As cidades do exterior só são varridas quando o total do exterior muda, no má
 Com `ADMIN_TOKEN` definido, `/admin.html` mostra:
 
 - **Saúde:** há quanto tempo o TSE respondeu, pausas por limite de acesso, UFs do 2º turno na configuração do TSE, disputas, feeds e conexões ao vivo. Atualiza a cada 10 s.
-- **Pesquisas:** lista as manchetes com registro nacional (BR-xxxxx/2026) que ainda não estão no modelo. Você abre a fonte, confere e digita os números; ao aprovar, a aba Previsões é recalculada para todos na hora. Nada é tirado automaticamente de manchete. As aprovadas ficam em `data/pesquisas.json` e podem ser removidas.
+- **Cadastro de pesquisas do TSE:** quantas pesquisas presidenciais tem e quando foi lido.
+- **Esperando aprovação:** pesquisas do cadastro do TSE com números lidos nas reportagens, mas sem a confirmação de dois veículos (ou com números divergentes). O botão preenche o formulário; você confere na fonte e aprova.
+- **Pesquisas detectadas nas manchetes:** registros nacionais citados em manchetes que ainda não estão no modelo.
+- **No modelo:** automáticas (com os veículos que confirmaram) e aprovadas no painel. Ao aprovar ou remover, a aba Previsões é recalculada para todos na hora. Ficam em `data/pesquisas.json`.
 
 A senha vai no cabeçalho `Authorization` (sem cookie) e fica só na aba do navegador. Dez senhas erradas bloqueiam o IP por alguns minutos.
 
@@ -203,6 +220,8 @@ O servidor precisa ficar ligado o tempo todo (consulta o TSE a cada 15 s), entã
 config/elections.json        códigos oficiais, UFs, limites de taxa
 src/tse/                     URLs, cliente HTTP com proteção, leitura do EA20/EA12
 src/noticias/                leitor de RSS, classificador e coletor de notícias
+src/pesquisas-auto/          cadastro de pesquisas do TSE, leitura de reportagens, entrada automática
+src/pesquisas.js             pesquisas do painel e automáticas (conferência entre veículos)
 src/collector.js             descoberta, 1º turno, 2º turno ao vivo, exterior, eventos, fotos
 src/shared/engine.js         cenário-base, projeção e Monte Carlo
 src/shared/aovivo.js         simulador ao vivo (apurado + o que falta, ponto de virada)
@@ -217,7 +236,7 @@ scripts/                     geração do mapa-múndi e cadastro de cidades
 test/                        testes (node --test)
 ```
 
-API: `/api/status`, `/api/races`, `/api/race/:id`, `/api/endorsers`, `/api/exterior`, `/api/eventos`, `/api/noticias`, `/api/foto/:sqcand`, `/api/stream`.
+API: `/api/status`, `/api/races`, `/api/race/:id`, `/api/endorsers`, `/api/exterior`, `/api/eventos`, `/api/noticias`, `/api/pesquisas`, `/api/foto/:sqcand`, `/api/stream`.
 
 Mapas: [@svg-maps/brazil](https://github.com/VictorCazanave/svg-maps), de Victor Cazanave (CC BY 4.0), e Natural Earth via [world-atlas](https://github.com/topojson/world-atlas) (ISC).
 

@@ -40,13 +40,16 @@ if (usarReais) {
 }
 
 await main({
-  ...(noticias ? { noticias } : {}),
+  // com notícias fictícias não há reportagem real para conferir: entrada automática desligada
+  ...(noticias ? { noticias, pesquisasTse: null } : {}),
   base: `http://127.0.0.1:${MOCK_PORT}`,
   ambiente: mock.fonte.amb,
   ciclo: mock.fonte.ciclo,
   pollIntervalMs: Number(process.env.POLL_MS || 4000),
   maxRps: 40,
   dataDir,
+  // o cadastro de pesquisas do TSE fica fora de data/mock (apagada a cada execução): sem baixar de novo
+  cacheDir: path.join(ROOT, 'data'),
   modoTeste: true,
   dadosReais: usarReais ? { baixadoEm: mock.fonte.manifesto.baixadoEm, origem: mock.fonte.manifesto.origem } : null,
 });

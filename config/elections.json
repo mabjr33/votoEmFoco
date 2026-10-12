@@ -15,5 +15,11 @@
   "configIntervalMs": 120000,
   "maxRps": 8,
   "maxConcurrency": 4,
+  "pesquisasTse": {
+    "_comentario": "Cadastro oficial de pesquisas (PesqEle), Portal de Dados Abertos do TSE, conjunto pesquisas-eleitorais-2026. Não traz resultados; serve para conferir registro, instituto, campo e amostra.",
+    "url": "https://cdn.tse.jus.br/estatistica/sead/odsele/pesquisa_eleitoral/pesquisa_eleitoral_2026.zip",
+    "desde": "2026-10-06",
+    "intervaloMs": 21600000
+  },
   "userAgent": "eleicoes-ao-vivo/1.0 (+divulgacao de resultados; respeita limite de 100 req/s/IP)"
 }

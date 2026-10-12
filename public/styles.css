@@ -366,6 +366,20 @@ details.secao[open] > summary::after { content: "−"; }
 .tabela .n { text-align: right; white-space: nowrap; }
 .tabela .forte { font-weight: 600; }
 .tabela tr.antes td { color: var(--tinta-3); }
+.mais-registradas { margin-top: var(--e2); }
+.mais-registradas summary { cursor: pointer; color: var(--tinta-2); font-size: 14px; padding: 6px 0; }
+/* previsão dia a dia */
+.serie svg { width: 100%; height: auto; display: block; overflow: visible; }
+.serie .grade { stroke: var(--linha); stroke-width: 1; }
+.serie .meio { stroke: var(--tinta-3); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.serie .faixa { fill: color-mix(in oklab, var(--tinta) 12%, transparent); }
+.serie .linha { fill: none; stroke: var(--tinta); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+.serie .pto-serie { fill: var(--sup); stroke: var(--tinta); stroke-width: 2; cursor: default; }
+.serie .pto-serie:hover { r: 5; }
+.serie .ey, .serie .ex { font: 500 11px var(--fonte); fill: var(--tinta-3); }
+.serie .ey { text-anchor: end; }
+.serie .ex { text-anchor: middle; }
+.serie .lado { font: 600 12px var(--fonte); text-anchor: end; }
 
 .cenarios { list-style: none; padding: 0; margin: 0; max-width: 720px; }
 .cenarios li { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e2); padding: 10px 0; border-top: 1px solid var(--linha); font-size: 15px; }

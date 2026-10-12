@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>Painel</title>
@@ -27,8 +28,14 @@
       </section>
 
       <section>
+        <h2>Esperando aprovação</h2>
+        <p class="intro">Pesquisas do cadastro oficial do TSE cujos números foram lidos nas reportagens, mas sem confirmação suficiente para entrar sozinhas (é preciso que dois veículos diferentes publiquem os mesmos números). Confira na fonte e aprove pelo formulário.</p>
+        <div id="pendentes"></div>
+      </section>
+
+      <section>
         <h2>Pesquisas detectadas nas manchetes</h2>
-        <p class="intro">Manchetes com número de registro nacional que ainda não estão no modelo. Abra a fonte, confira os números e preencha abaixo. Nada entra sem aprovação.</p>
+        <p class="intro">Manchetes com número de registro nacional que ainda não estão no modelo nem esperando aprovação. Abra a fonte, confira os números e preencha abaixo.</p>
         <div id="detectadas"></div>
       </section>
 
@@ -56,7 +63,8 @@
       </section>
 
       <section>
-        <h2>Aprovadas no painel</h2>
+        <h2>No modelo (automáticas e aprovadas no painel)</h2>
+        <p class="intro">Uma automática removida aqui não volta sozinha; só pelo formulário.</p>
         <div id="aprovadas"></div>
       </section>
       <p><button class="botao-2" id="sair" type="button">Sair</button></p>

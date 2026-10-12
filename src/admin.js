@@ -10,7 +10,7 @@ const MAX_FALHAS = 10;
 
 const hash = (s) => createHash('sha256').update(String(s)).digest();
 
-export function criarAdmin({ token, collector, noticias, pesquisas, conexoes, aoMudarPesquisas, trustProxy = false, log = console }) {
+export function criarAdmin({ token, collector, noticias, pesquisas, cadastro = null, conexoes, aoMudarPesquisas, trustProxy = false, log = console }) {
   const ativo = typeof token === 'string' && token.length >= 16;
   if (token && !ativo) log.warn?.('[admin] ADMIN_TOKEN com menos de 16 caracteres: painel desligado');
   const esperado = ativo ? hash(token) : null;
@@ -62,6 +62,7 @@ export function criarAdmin({ token, collector, noticias, pesquisas, conexoes, ao
       },
       disputas: races,
       noticias: n ? { atualizadoEm: n.atualizadoEm, fontes: n.fontes } : null,
+      cadastroPesquisas: cadastro ? { atualizadoEm: cadastro.atualizadoEm, erro: cadastro.erro, pesquisas: cadastro.itens.size } : null,
     };
   }
 
@@ -77,7 +78,7 @@ export function criarAdmin({ token, collector, noticias, pesquisas, conexoes, ao
         const conhecidos = pesquisas.conhecidos();
         const semRegistro = itens.filter((i) => i.etiquetas.includes('pesquisa') && !(i.registros || []).some((r) => conhecidos.has(r)) && !(i.registros || []).length).slice(0, 15)
           .map((i) => ({ titulo: i.titulo, link: i.link, fonte: i.fonte, data: i.data }));
-        return responder(res, 200, { aprovadas: pesquisas.itens, detectadas: pesquisas.detectadas(itens), semRegistro }), true;
+        return responder(res, 200, { aprovadas: pesquisas.itens, pendentes: pesquisas.pendentes, detectadas: pesquisas.detectadas(itens), semRegistro, automatica: !!cadastro }), true;
       }
       if (p === '/api/admin/pesquisas' && req.method === 'POST') {
         let corpo;
