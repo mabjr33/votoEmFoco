@@ -43,7 +43,7 @@ O `npm run baixar` usa o mesmo cliente do servidor (no máximo 8 requisições p
 ```bash
 npm run mock:ficticio            # dados sintéticos e nomes fictícios, feeds de notícias fictícios
 MOCK_DURATION=600 npm run mock   # mais lento (Windows: $env:MOCK_DURATION=600; npm run mock)
-npm test                         # 41 testes
+npm test                         # 45 testes (3 deles conferem os dados de data/tse-1turno, se existir)
 ```
 
 Sem a pasta `data/tse-1turno`, o `npm run mock` também usa os dados fictícios.
@@ -163,7 +163,7 @@ Segue a documentação técnica oficial ([Informações técnicas sobre a divulg
 
 As cidades do exterior só são varridas quando o total do exterior muda, no máximo uma vez por minuto. As fotos só são pedidas para candidatos já carregados.
 
-**Cidades do exterior no mapa:** o arquivo do TSE traz o nome da cidade, não o país nem as coordenadas. O país e a posição vêm de um cadastro próprio com 183 cidades (`scripts/cidades-exterior.mjs`). Uma cidade que não estiver nele aparece em "Outros locais" na lista, sem ponto no mapa. Para incluir, edite o cadastro e rode `node scripts/gerar-mundo.mjs public/js/mundo.js`. Esse script precisa de `world-atlas`, `topojson-client` e `d3-geo`, que só servem para gerar o arquivo.
+**Cidades do exterior no mapa:** o arquivo do TSE traz o nome da cidade, não o país nem as coordenadas. O país e a posição vêm de um cadastro próprio com 197 cidades (`scripts/cidades-exterior.mjs`). Uma cidade que não estiver nele aparece em "Outros locais" na lista, sem ponto no mapa. Para incluir, edite o cadastro e rode `node scripts/gerar-mundo.mjs public/js/mundo.js`. Esse script precisa de `world-atlas`, `topojson-client` e `d3-geo`, que só servem para gerar o arquivo.
 
 ## Estrutura
 

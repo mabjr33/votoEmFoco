@@ -5,6 +5,7 @@ import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { pathToFileURL } from 'node:url';
 import { loadConfig, ROOT } from './config.js';
 import { TseClient } from './tse/client.js';
 import { Collector } from './collector.js';
@@ -136,4 +137,5 @@ export async function main(overrides = {}) {
   return { server, collector, noticias, cfg };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+// pathToFileURL: funciona no Windows e em pastas com espaço ou parênteses
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

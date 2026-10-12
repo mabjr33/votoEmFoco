@@ -110,7 +110,7 @@ main { padding-top: var(--e4); padding-bottom: var(--e5); }
 .explorar { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: var(--e5); align-items: start; }
 .mapa { position: relative; }
 .mapa svg { width: 100%; height: auto; display: block; max-height: 640px; user-select: none; }
-.mapa svg.br path[data-uf] { stroke: var(--bg); stroke-width: 1.2; stroke-linejoin: round; cursor: pointer; transition: fill .3s, opacity .15s; }
+.mapa svg.br path[data-uf] { fill: var(--vazio); stroke: var(--bg); stroke-width: 1.2; stroke-linejoin: round; cursor: pointer; transition: fill .3s, opacity .15s; }
 .mapa svg.br path[data-uf]:hover { opacity: .82; }
 .mapa svg.br path.sel { stroke: var(--tinta); stroke-width: 2.4; }
 .mapa svg.br path:focus-visible { outline: none; stroke: var(--foco); stroke-width: 2.4; }

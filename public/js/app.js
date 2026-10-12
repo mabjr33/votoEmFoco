@@ -453,7 +453,7 @@ function renderGovernadores() {
   if (uf) $('#painel').innerHTML = painelGovUf(uf);
   else {
     const item = (s) => `<li><a href="#governadores-${s.uf}"><span class="uf" style="background:${s.cor};color:${s.cor.startsWith('#') ? textoSobre(s.cor) : '#fff'}">${s.uf.toUpperCase()}</span>
-      <span class="quem">${esc(s.lider.nmu)}${s.tipo === 'segundo' || s.tipo === 'vivo' ? ` × ${esc(s.B.nmu)}` : ''}<small>${esc(s.lider.partido)}, ${esc(rotuloGov(s).toLowerCase())}</small></span>
+      <span class="quem">${esc(s.lider.nmu)}${s.tipo === 'segundo' || s.tipo === 'vivo' ? ` × ${esc((s.lider.n === s.B.n ? s.A : s.B).nmu)}` : ''}<small>${esc(s.lider.partido)}, ${esc(rotuloGov(s).toLowerCase())}</small></span>
       <span class="v">${s.tipo === 'segundo' ? '' : `${fmtPct(Math.max(s.pA, s.pB || 0), 0)}%`}</span></a></li>`;
     $('#painel').innerHTML = `<div class="painel-cab"><div><h2>Estados</h2><p class="sub">Os 2º turnos primeiro, depois os eleitos no 1º turno.</p></div></div>
       <div class="bloco"><h3>2º turno</h3><ul class="lista-estados">${seg.map(item).join('')}</ul></div>

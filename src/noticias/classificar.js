@@ -31,17 +31,21 @@ const REGISTRO = /\b([A-Z]{2})-(\d{5})\/(20\d{2})\b/g;
 const HOMONIMOS = /\bFLAVIO DINO\b/g;
 
 const TITULOS = /^(CANDIDAT[OA]|GOVERNADORA?|SENADORA?|DEPUTAD[OA]|PREFEIT[OA]|PROFESSORA?|DOUTORA?|PASTORA?|DELEGAD[OA]|CORONEL|CAPITAO|GENERAL|VICE|JUIZA?|MAJOR|SARGENTO|IRMAO|IRMA|PADRE|BISPO|MESTRE)$/;
+// Sufixos que não identificam ninguém sozinhos
+const SUFIXOS = /^(JUNIOR|FILHO|NETO|SOBRINHO)$/;
 const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function padroesDe(nomes) {
+/** excluir: palavras que não valem sozinhas (ex.: nomes dos finalistas a presidente, para "Cadu de Lula" não pegar "Lula"). */
+function padroesDe(nomes, excluir = new Set()) {
   const ps = new Set();
+  const parcial = (p) => p.length >= 4 && !SUFIXOS.test(p) && !excluir.has(p);
   for (const nome of nomes) {
     const n = normalizar(nome);
     if (!n) continue;
     ps.add(n);
     const partes = n.split(' ');
     const ult = partes.at(-1);
-    if (partes.length > 1 && ult.length >= 4) ps.add(ult);
-    if (partes.length > 1 && partes[0].length >= 4 && !TITULOS.test(partes[0])) ps.add(partes[0]);
+    if (partes.length > 1 && parcial(ult)) ps.add(ult);
+    if (partes.length > 1 && parcial(partes[0]) && !TITULOS.test(partes[0])) ps.add(partes[0]);
   }
   return [...ps].map((p) => new RegExp(`\\b${reEsc(p)}\\b`));
 }
@@ -51,9 +55,11 @@ function padroesDe(nomes) {
  * Compila uma vez e reaproveita.
  */
 export function prepararContexto({ presidente = [], governadores = [], apelidos = [] } = {}) {
+  const nomesPres = [...presidente, ...apelidos];
+  const palavrasPres = new Set(nomesPres.flatMap((n) => normalizar(n).split(' ')));
   return {
-    presidente: padroesDe([...presidente, ...apelidos]),
-    governadores: governadores.map((g) => ({ uf: g.uf, padroes: padroesDe(g.nomes) })),
+    presidente: padroesDe(nomesPres),
+    governadores: governadores.map((g) => ({ uf: g.uf, padroes: padroesDe(g.nomes, palavrasPres) })),
   };
 }
 

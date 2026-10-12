@@ -70,6 +70,20 @@ test('classificador: etiquetas e estados', () => {
   assert.deepEqual(cl('Paraná Pesquisas: Flávio lidera em Minas Gerais').ufs, ['mg'], '"Paraná Pesquisas" não é o estado');
 });
 
+test('classificador: nome de governador que contém o de um presidenciável não etiqueta o estado à toa', () => {
+  const ctx = prepararContexto({
+    presidente: ['FLAVIO BOLSONARO', 'LULA'],
+    governadores: [{ uf: 'rn', nomes: ['ALLYSON', 'CADU DE LULA'] }, { uf: 'to', nomes: ['PROFESSORA DORINHA', 'VICENTINHO JÚNIOR'] }],
+  });
+  const c = (titulo) => classificar({ titulo, link: 'https://x.com.br/politica/a', resumo: '', categorias: [] }, ctx);
+  const nacional = c('Flávio mente e vai acabar com Farmácia Popular, diz Lula');
+  assert.deepEqual(nacional.ufs, []);
+  assert.ok(!nacional.etiquetas.includes('governadores'));
+  assert.deepEqual(c('Cadu de Lula e Allyson fazem debate em Natal').ufs, ['rn'], 'o nome completo continua valendo');
+  assert.equal(c('Júnior diz que vai votar no domingo'), null, 'sufixo sozinho não identifica candidato');
+  assert.deepEqual(c('Vicentinho diz que vence no 2º turno').ufs, ['to']);
+});
+
 test('link canônico ignora rastreio e barra final', () => {
   assert.equal(linkCanonico('https://www.a.com/x/?utm_source=rss&id=2#c'), 'a.com/x?id=2');
 });
