@@ -137,15 +137,16 @@ const diaCurto = (iso) => { const [, m, d] = iso.split('-').map(Number); return 
 /** A previsão combinada dia a dia, refeita só com as pesquisas já divulgadas em cada dia. */
 function blocoEvolucao() {
   if (SERIE.length < 2) return '';
-  // Desenhado na largura da tela: no celular o texto não encolhe junto com o gráfico
-  const W = Math.round(Math.min(640, Math.max(300, document.documentElement.clientWidth - 32))), H = W < 480 ? 190 : 220, ml = 40, mr = 16, mt = 12, mb = 26;
+  // Desenhado no tamanho real da área (1 unidade = 1 px): letras e linhas do mesmo tamanho do resto do site
+  const W = Math.round(Math.min(1100, Math.max(300, LARGURA))), H = W < 480 ? 150 : 170, ml = 40, mr = 16, mt = 10, mb = 24;
   const vals = SERIE.flatMap((s) => s.int80);
-  const lo = Math.min(46, Math.floor(Math.min(...vals) - 0.5)), hi = Math.max(54, Math.ceil(Math.max(...vals) + 0.5));
+  // Escala justa em volta dos dados, sempre com a linha dos 50%
+  const lo = Math.min(49, Math.floor(Math.min(...vals) - 0.5)), hi = Math.max(51, Math.ceil(Math.max(...vals) + 0.5));
   const x = (i) => ml + (i / (SERIE.length - 1)) * (W - ml - mr);
   const y = (v) => mt + ((hi - v) / (hi - lo)) * (H - mt - mb);
   const faixa = `${SERIE.map((s, i) => `${x(i).toFixed(1)},${y(s.int80[1]).toFixed(1)}`).join(' ')} ${SERIE.map((s, i) => `${x(i).toFixed(1)},${y(s.int80[0]).toFixed(1)}`).reverse().join(' ')}`;
   const linha = SERIE.map((s, i) => `${x(i).toFixed(1)},${y(s.centro).toFixed(1)}`).join(' ');
-  const passoY = hi - lo > 10 ? 4 : 2;
+  const passoY = hi - lo > 10 ? 4 : hi - lo > 5 ? 2 : 1;
   const gradeY = [];
   for (let v = Math.ceil(lo / passoY) * passoY; v <= hi; v += passoY) gradeY.push(`<line x1="${ml}" x2="${W - mr}" y1="${y(v)}" y2="${y(v)}" class="${v === 50 ? 'meio' : 'grade'}"/><text x="${ml - 6}" y="${y(v) + 4}" class="ey">${v}%</text>`);
   const cada = Math.max(1, Math.ceil(SERIE.length / 8));
@@ -154,7 +155,7 @@ function blocoEvolucao() {
   const u = SERIE.at(-1), p0 = SERIE[0];
   return `<section><h2>Como a previsão mudou</h2>
     <p class="intro">Dia a dia, só com as pesquisas já divulgadas. Faixa cinza: 80% dos casos.</p>
-    <div class="serie"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Previsão dia a dia: de ${fmtPct(p0.centro, 1)}% em ${diaCurto(p0.dia)} para ${fmtPct(u.centro, 1)}% em ${diaCurto(u.dia)}">
+    <div class="serie"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Previsão dia a dia: de ${fmtPct(p0.centro, 1)}% em ${diaCurto(p0.dia)} para ${fmtPct(u.centro, 1)}% em ${diaCurto(u.dia)}">
       ${gradeY.join('')}<polygon points="${faixa}" class="faixa"/><polyline points="${linha}" class="linha"/>${pontos}${rotX}
       <text x="${W - mr}" y="${y(50) - 6}" class="lado" style="fill:${CA}">↑ ${esc(NOME_F.split(' ')[0])}</text><text x="${W - mr}" y="${y(50) + 15}" class="lado" style="fill:${CB}">↓ ${esc(NOME_L)}</text>
     </svg></div>
@@ -341,7 +342,9 @@ function dobra(id, html, resumo) {
 }
 
 /** Monta a aba. ctx: { pres, gov, fins, premissas, ufNome, UFS, fotos } */
+let LARGURA = 640;
 export function renderPrevisoes(raiz, ctx) {
+  LARGURA = raiz.clientWidth || document.documentElement.clientWidth - 32;
   const mapa = blocoMapa(ctx);
   // As seções abertas continuam abertas quando a página é refeita (pesquisa nova, por exemplo)
   const abertas = new Set([...raiz.querySelectorAll('details.dobra[open]')].map((d) => d.dataset.dobra));

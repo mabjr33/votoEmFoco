@@ -393,7 +393,7 @@ details.secao[open] > summary::after { content: "−"; }
 .mais-registradas { margin-top: var(--e2); }
 .mais-registradas summary { cursor: pointer; color: var(--tinta-2); font-size: 14px; padding: 6px 0; }
 /* previsão dia a dia */
-.serie svg { width: 100%; height: auto; display: block; overflow: visible; }
+.serie svg { max-width: 100%; height: auto; display: block; overflow: visible; }
 .serie .grade { stroke: var(--linha); stroke-width: 1; }
 .serie .meio { stroke: var(--tinta-3); stroke-width: 1.2; stroke-dasharray: 4 3; }
 .serie .faixa { fill: color-mix(in oklab, var(--tinta) 12%, transparent); }
