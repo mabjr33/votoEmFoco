@@ -1,3 +1,5 @@
+import { SEGUNDOS_TURNOS } from '../src/shared/segundos-turnos.js';
+import { ELEICOES } from '../src/shared/historico.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -44,11 +46,35 @@ test('modelo de pesquisas: média pós-1º turno + viés histórico', () => {
   assert.ok(m.sd > 1.5 && m.sd < 2.5);
 });
 
-test('modelo histórico: mediana de k e o líder vence', () => {
+test('histórico do TSE: as 7 eleições de presidente batem com os resultados conhecidos', () => {
+  const pres = SEGUNDOS_TURNOS.filter((d) => d.cargo === 'presidente');
+  assert.deepEqual(pres.map((d) => d.ano), [1989, 2002, 2006, 2010, 2014, 2018, 2022]);
+  for (const d of pres) {
+    const e = ELEICOES.find((x) => x.ano === d.ano);
+    perto(d.a.p1, e.lider.t1); perto(d.a.p2, e.lider.t2); perto(d.b.p1, e.segundo.t1); perto(d.b.p2, e.segundo.t2);
+  }
+  // Governadores: 2º turnos de 1990 a 2022; ex.: SP 2022
+  const sp = SEGUNDOS_TURNOS.find((d) => d.ano === 2022 && d.uf === 'sp' && d.cargo === 'governador');
+  assert.equal(sp.a.partido, 'REPUBLICANOS'); perto(sp.a.p2, 55.27);
+  assert.equal(SEGUNDOS_TURNOS.length, 125);
+});
+
+test('modelo histórico: 125 disputas de 2º turno, presidente e governador', () => {
   const m = modeloHistorico();
-  perto(m.detalhe.k, 0.46);
+  assert.equal(m.detalhe.n, 125);
+  perto(m.detalhe.b, 0.51);
   assert.ok(m.centro > 50 && m.centro < 51);
-  assert.ok(m.sd > 3);
+  assert.ok(m.sd > 3 && m.sd < 6);
+  // Vantagem pequena (50% a 52% entre os dois): o líder venceu metade das vezes
+  const f = m.detalhe.faixas[0];
+  assert.deepEqual([f.de, f.ate, f.n, f.venceu], [50, 52, 26, 13]);
+  assert.equal(m.detalhe.faixas.reduce((s, x) => s + x.n, 0), 125);
+  // Regra conferida à mão num caso pequeno: duas disputas, y = b·x passa pela origem
+  const mini = modeloHistorico({ disputas: [
+    { ano: 1, cargo: 'governador', uf: 'x', a: { nome: 'A', p1: 60, p2: 55 }, b: { nome: 'B', p1: 40, p2: 45 } },
+    { ano: 2, cargo: 'governador', uf: 'y', a: { nome: 'A', p1: 55, p2: 52.5 }, b: { nome: 'B', p1: 45, p2: 47.5 } },
+  ] });
+  perto(mini.detalhe.b, 0.5);
 });
 
 test('modelo de transferência: três leituras sobre os 7,81% dos eliminados', () => {

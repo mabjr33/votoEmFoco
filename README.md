@@ -105,7 +105,7 @@ A aba **Previsões** junta fatos e estimativas, sempre separados na tela. Os dad
 |---|---|---|
 | Pesquisas corrigidas | Média das 6 pesquisas nacionais de 2º turno pós-1º turno, a mais recente de cada instituto (DataTrends, Ipespe, PoderData, Datafolha, AtlasIntel, Vox Brasil: 52,1%) + erro médio das últimas pesquisas de 2º turno em 2010, 2018 e 2022 (PT superestimado em 0,83 pp, 13 pesquisas) | Flávio 53,0% (±2,0) |
 | Transferência dos eliminados | 1º turno + média de três leituras de para onde vão os 7,81% dos demais: Datafolha 6–8/10, todos juntos (46% Flávio, 32% Lula) = 51,5%; Ipespe 6–8/10, por candidato (Cury 50/29, Caiado 56/15, Renan 36/20) = 52,0%; perfil dos partidos (regra do simulador) = 51,9% | Flávio 51,8% (±2,0: premissa + discordância entre leituras) |
-| Padrão histórico | Mediana de quanto da vantagem do líder (entre os dois) sobra no 2º turno, 1989 a 2022 (46%) | Flávio 50,5% (±4,3) |
+| Histórico de 2º turnos | As 125 disputas de presidente (7) e governador (118) que foram ao 2º turno de 1989 a 2022, com votos dos arquivos do TSE: em média sobra 51% da vantagem do líder entre os dois; incerteza medida nas 35 disputas com fatia parecida de votos fora dos finalistas | Flávio 50,5% (±4,4) |
 | Combinação | Média ponderada pelo inverso da variância; incerteza = média ponderada dos desvios (conservadora, porque os modelos se correlacionam) | Flávio 52,2%, faixa de 80% 49,4 a 55,0; chance de 84% no modelo |
 | Abstenção | Variação média do 1º para o 2º turno, 2002 a 2022 (+1,77 pp) | 22,9% (20,7 a 24,5) |
 | Mapa provável | Cenário-base do simulador deslocado por igual até bater com a combinação; chance por estado com ±1,5 pp extra | por estado |
@@ -114,6 +114,8 @@ A aba **Previsões** junta fatos e estimativas, sempre separados na tela. Os dad
 A página também mostra o erro de cada pesquisa final desde 2010, cenários "e se as pesquisas errarem como em X", o 1º → 2º turno de cada eleição desde 1989, as pesquisas do 2º turno de 2026 com número de registro e a lista de fontes.
 
 **Fatos que a página destaca, calculados dos dados:** o líder do 1º turno venceu as 7 disputas de 2º turno desde 1989; a diferença de 1,87 pp no 1º turno de 2026 é a menor da série; os dois finalistas somaram 92,19%, a maior soma.
+
+**Histórico do TSE:** `node scripts/baixar-historico.mjs` baixa uma vez (~2 GB, fora do repositório) os resultados de 1989 a 2022 do Portal de Dados Abertos; `node scripts/historico-segundo-turno.mjs` gera `src/shared/segundos-turnos.js` (125 disputas, poucos KB). Eleições de 1945 a 1960 (turno único, voto restrito) e o período sem eleição direta para presidente não entram: não dizem nada sobre 2º turno. Com vantagem pequena no 1º turno (50% a 52% entre os dois, como em 2026), o líder venceu 13 de 26 disputas.
 
 **Ficou de fora:** pesquisas finais de 2002, 2006 e 2014 (não deu para conferir os números em fonte confiável), 1º turno de 1989 na abstenção, debates e fatos novos.
 

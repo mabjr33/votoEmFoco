@@ -101,14 +101,14 @@ function blocoModelos() {
     <div class="filas">
       ${linha(mp, 'Pesquisas corrigidas', `peso ${peso('pesquisas')}% na combinação`)}
       ${linha(mt, 'Transferência dos eliminados', `peso ${peso('transferencia')}%`)}
-      ${linha(mh, 'Padrão histórico', `peso ${peso('historico')}%`)}
+      ${linha(mh, 'Histórico de 2º turnos', `peso ${peso('historico')}%`)}
       ${linha({ centro: P.combinado.centro, sd: P.combinado.sd }, 'Previsão combinada', 'média ponderada', true)}
       ${eixo(lo, hi, 4)}
     </div>
     <div class="explica-grade">
       <div><h3>Pesquisas corrigidas</h3><p>Média das ${dp.usadas.length} pesquisas de 2º turno feitas depois do 1º turno, a mais recente de cada instituto (${dp.usadas.map((u) => `${esc(u.instituto)} ${fmtPct(u.flavio, 1)}%`).join(', ')}) = ${pct(dp.bruto, 2)}. Nas últimas pesquisas de 2010, 2018 e 2022 (${dp.nErros} levantamentos), o candidato do PT apareceu em média ${fmtPct(dp.vies, 2)} pp acima do resultado. Somando essa correção, ${pct(mp.centro, 2)}. A incerteza junta a variação desse erro (${fmtPct(dp.sdErro, 1)} pp) com 1,5 pp pelas duas semanas até a eleição.</p></div>
       <div><h3>Transferência dos eliminados</h3><p>No 1º turno, os demais candidatos tiveram ${pct(dt.outros, 2)} dos válidos. O modelo soma aos votos de cada finalista a parte desses eleitores que vai para ele, em ${dt.leituras.length} leituras: ${dt.leituras.map((l) => `${esc(l.nome)} ${pct(l.centro)}`).join(', ')}. A média dá ${pct(mt.centro, 2)}. Supõe que quem votou nos dois finalistas repete o voto. A incerteza junta 2 pp de premissa com a diferença entre as leituras (${fmtPct(dt.sdLeituras, 1)} pp).</p></div>
-      <div><h3>Padrão histórico</h3><p>De um turno para o outro, a vantagem do líder entre os dois finalistas costuma encolher: na mediana de 1989 a 2022, sobrou ${fmtPct(dh.k * 100, 0)}% dela. Em 2026, ${esc(NOME_F.split(' ')[0])} teve ${pct(dh.s1, 2)} entre os dois, o que leva a ${pct(mh.centro, 2)}. Pesa pouco porque varia muito: em 2006, Lula ampliou a vantagem e passou de ${pct(dh.pontos.find((p) => p.ano === 2006).s1, 1)} para ${pct(dh.pontos.find((p) => p.ano === 2006).s2, 1)}.</p></div>
+      <div><h3>Histórico de 2º turnos</h3><p>Todas as ${dh.n} disputas de presidente (${dh.nPresidente}) e de governador que foram ao 2º turno de 1989 a 2022, com os votos dos arquivos do TSE. Em média, sobra no 2º turno ${fmtPct(dh.b * 100, 0)}% da vantagem que o líder tinha entre os dois no 1º. Em 2026, ${esc(NOME_F.split(' ')[0])} teve ${pct(dh.s1, 2)} entre os dois, o que leva a ${pct(mh.centro, 2)}. A incerteza (${fmtPct(mh.sd, 1)} pp) vem das ${dh.nParecidos} disputas com uma fatia parecida de votos fora dos dois finalistas. Pesa pouco porque varia muito: o 2º colocado virou em ${dh.viradas} das ${dh.n}.</p></div>
     </div></section>`;
 }
 
@@ -197,6 +197,20 @@ function blocoErros() {
     <ul class="cenarios">${cen}</ul></section>`;
 }
 
+/** Das disputas de 2º turno desde 1989 (presidente e governador): quantas o líder do 1º turno venceu. */
+function tabelaLideres() {
+  const mh = P.modelos.find((m) => m.id === 'historico'), dh = mh.detalhe;
+  const f1 = NOME_F.split(' ')[0];
+  const linhas = dh.faixas.map((f) => {
+    const aqui = dh.s1 >= f.de && dh.s1 < f.ate;
+    return `<tr class="${aqui ? 'destaque' : ''}"><td>${f.ate >= 100 ? `acima de ${f.de}%` : `${f.de}% a ${f.ate}%`}${aqui ? `<small>aqui está 2026: ${esc(f1)} com ${pct(dh.s1)}</small>` : ''}</td><td class="n">${f.n}</td><td class="n forte">${f.venceu} (${fmtPct((100 * f.venceu) / f.n, 0)}%)</td></tr>`;
+  }).join('');
+  return `<h3 class="sub-h">Presidente e governador, ${dh.n} disputas de 2º turno desde 1989</h3>
+    <p class="nota">Quantas vezes quem liderou o 1º turno venceu, pela vantagem que tinha contando só os dois finalistas. Votos dos arquivos do TSE.</p>
+    <div class="tabela-rolar"><table class="tabela"><thead><tr><th>Líder no 1º turno, entre os dois</th><th class="n">Disputas</th><th class="n">Líder venceu</th></tr></thead><tbody>${linhas}</tbody></table></div>
+    <p class="nota">Só com o 1º turno, uma vantagem pequena como a de 2026 diz pouco. O que move a previsão são as pesquisas e a transferência dos votos dos eliminados.</p>`;
+}
+
 function blocoHistoria() {
   const c = P.comparativo;
   const lo = 45, hi = 70;
@@ -225,6 +239,7 @@ function blocoHistoria() {
     <div class="fatos">${fatos}</div>
     <div class="legenda-hist"><span><i class="pto vazado"></i>1º turno, entre os dois</span><span><i class="pto"></i>2º turno</span><span><i class="pto prev"></i>2026: previsão combinada (*), ainda não é resultado</span></div>
     <div class="filas historia"><div class="fila cab"><div></div><div></div><div class="fila-v dupla"><span class="t1">1º turno</span><span class="seta"></span><span class="t2">2º turno</span></div></div>${filas}${eixo(lo, hi, 5)}</div>
+    ${tabelaLideres()}
     <p class="nota" style="margin-top:12px">Em 2022 e em 2026, o presidente em exercício chegou ao 2º turno em segundo lugar. Em 2022, Bolsonaro reduziu a diferença de ${fmtPct(48.43 - 43.2, 1)} pp no 1º turno para ${fmtPct(50.9 - 49.1, 1)} pp no 2º, mas não virou.</p></section>`;
 }
 
@@ -325,7 +340,7 @@ function blocoGovernadores(ctx) {
 }
 
 function blocoMetodo() {
-  const usadas = new Set(['bpmoney', 'tse2018', 'ihu2018', 'cf2014', 'cf2022', 'pp2026', 'abst2026', 'abstAB', 'abstC24', 'opovoAbst', 'wiki2010', 'wiki2018', 'wiki2022', 'df0310', 'quaest0310', 'rtbd0110', 'df0810', 'atlas0910', 'vox0910', 'cnt0310', 'cc0910', 'oeste1210', 'folha1010', 'tse1t2026']);
+  const usadas = new Set(['bpmoney', 'tse2018', 'ihu2018', 'cf2014', 'cf2022', 'pp2026', 'abst2026', 'abstAB', 'abstC24', 'opovoAbst', 'wiki2010', 'wiki2018', 'wiki2022', 'df0310', 'quaest0310', 'rtbd0110', 'df0810', 'atlas0910', 'vox0910', 'cnt0310', 'cc0910', 'oeste1210', 'folha1010', 'tse1t2026', 'tseDados']);
   const lista = [...usadas].filter((k) => FONTES[k]).map((k) => `<li><a href="${esc(FONTES[k].url)}" target="_blank" rel="noopener">${esc(FONTES[k].nome)}</a></li>`).join('');
   return `<section class="metodo"><h2>Como foi feito e o que fica de fora</h2>
     <ul class="pontos">
@@ -369,7 +384,7 @@ export function renderPrevisoes(raiz, ctx) {
         ${dobra('modelos', blocoModelos(), `Pesquisas ${pct(mp.centro)} · transferência ${pct(mt.centro)} · histórico ${pct(mh.centro)}`)}
         ${dobra('margem', blocoMargem(textoVotos(ctx)), `Mais provável: ${esc(provavel.rotulo)} (${fmtChance(provavel.prob)})`)}
         ${dobra('erros', blocoErros(), `Nas últimas pesquisas de 2º turno, o PT apareceu em média ${fmtPct(mp.detalhe.vies, 1)} pp acima do resultado`)}
-        ${dobra('historia', blocoHistoria(), `O líder do 1º turno venceu ${cmp.lideresVenceram} de ${cmp.disputas} disputas desde 1989`)}
+        ${dobra('historia', blocoHistoria(), `Com vantagem pequena como a de 2026, o líder do 1º turno venceu ${mh.detalhe.faixas[0].venceu} de ${mh.detalhe.faixas[0].n} disputas desde 1989`)}
         ${dobra('transferencia', blocoTransferencia(), `${mt.detalhe.leituras.length} leituras (Datafolha, Ipespe, perfil dos partidos): ${pct(mt.centro)} para ${esc(NOME_F.split(' ')[0])}`)}
         ${dobra('mapa', mapa.html, 'Onde cada um tende a ir melhor')}
         ${dobra('abstencao', blocoAbstencao(), `Esperada: ${pct(P.abstencao.centro)}`)}

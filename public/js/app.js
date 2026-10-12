@@ -853,7 +853,7 @@ function desenharControles(r, c) {
       : temVotos(r) ? `<label class="interruptor"><input type="checkbox" id="sim-zero" ${o.semApuracao ? 'checked' : ''}> Simular o 2º turno inteiro, sem os votos já apurados</label>` : ''}
 
     <details class="secao" name="sim" open>
-      <summary><h2>Os votos que faltam</h2></summary>
+      <summary><h2>Os votos que faltam apurar</h2></summary>
       <div class="secao-corpo">
         <div class="divisao-topo"><div>${pessoa(A, CA, 36)}<div class="p" id="sim-pa"></div><div class="q" id="sim-qa"></div></div>
           <div style="text-align:right"><div class="pessoa" style="flex-direction:row-reverse">${avatar(B, { tam: 36, cor: CB })}<div><div class="nm">${esc(B.nmu)}</div><div class="pt">${esc(B.partido)}</div></div></div><div class="p" id="sim-pb"></div><div class="q" id="sim-qb"></div></div></div>
@@ -927,8 +927,8 @@ function atualizarSim(r, c) {
   $('#sim-trilho').style.setProperty('--pos', `${(s * 100).toFixed(1)}%`);
   $('#sim-pa').textContent = `${fmtPct(s * 100)}%`;
   $('#sim-pb').textContent = `${fmtPct((1 - s) * 100)}%`;
-  $('#sim-qa').textContent = `+${curto(f.faltam * s)}${deQtd(f.faltam * s)} votos`;
-  $('#sim-qb').textContent = `+${curto(f.faltam * (1 - s))}${deQtd(f.faltam * (1 - s))} votos`;
+  $('#sim-qa').textContent = `${vivo ? 'dos que faltam: ' : ''}+${curto(f.faltam * s)}${deQtd(f.faltam * s)} votos`;
+  $('#sim-qb').textContent = `${vivo ? 'dos que faltam: ' : ''}+${curto(f.faltam * (1 - s))}${deQtd(f.faltam * (1 - s))} votos`;
   const marcar = (el, v) => { el.hidden = v === null || v < 0 || v > 1; if (!el.hidden) el.style.left = `calc(${(v * 100).toFixed(2)}% + ${(12 - v * 24).toFixed(1)}px)`; };
   marcar($('#mk-esp'), f.esperado);
   marcar($('#mk-vir'), f.viradaA);
@@ -936,9 +936,13 @@ function atualizarSim(r, c) {
   if (!f.faltam) txt = 'Não há votos a dividir neste cenário.';
   else if (!vivo) txt = `${encerrada(r) || o.semApuracao ? 'No 2º turno inteiro simulado' : 'Antes da apuração'}, vence quem tiver mais da metade dos votos válidos. O empate fica em <b>${fmtPct(f.viradaA * 100)}%</b> para ${esc(A.nmu)}.`;
   else {
-    const atras = ap.A >= ap.B ? B : A, precisa = ap.A >= ap.B ? f.viradaB : f.viradaA, recebe = ap.A >= ap.B ? 1 - f.esperado : f.esperado;
-    txt = precisa > 1 ? `Nem com todos os votos que faltam <b>${esc(atras.nmu)}</b> alcança. O resultado está matematicamente definido.`
-      : `Para virar, <b>${esc(atras.nmu)}</b> precisa de <b>${fmtPct(precisa * 100)}%</b> dos votos que faltam. Pela estimativa, fica com ${fmtPct(recebe * 100)}%.`;
+    const frente = ap.A >= ap.B ? A : B, atras = ap.A >= ap.B ? B : A, precisa = ap.A >= ap.B ? f.viradaB : f.viradaA, recebe = ap.A >= ap.B ? 1 - f.esperado : f.esperado;
+    const dif = Math.abs(ap.A - ap.B);
+    // Perto de 50%, uma casa decimal esconde a diferença ("precisa de 50,0%" quando é 50,03%)
+    const casas = Math.abs(precisa - 0.5) < 0.01 || Math.abs(recebe - precisa) < 0.01 ? 2 : 1;
+    const apurado = `No que já foi apurado, <b>${esc(frente.nmu)}</b> está ${curto(dif)}${deQtd(dif)} votos à frente.`;
+    txt = precisa > 1 ? `${apurado} Nem com todos os votos que faltam <b>${esc(atras.nmu)}</b> alcança: o resultado está matematicamente definido.`
+      : `${apurado} Para passar à frente, <b>${esc(atras.nmu)}</b> precisa de <b>${fmtPct(precisa * 100, casas)}%</b> dos votos que faltam apurar. Pela estimativa, fica com ${fmtPct(recebe * 100, casas)}%: ${recebe > precisa ? '<b>viraria</b>' : `${esc(frente.nmu)} <b>continuaria à frente</b>`}.`;
   }
   $('#sim-virada').innerHTML = txt;
   $('#res-comp').textContent = o.comparecimento !== 1 ? `${Math.round(o.comparecimento * 100)}%` : '';

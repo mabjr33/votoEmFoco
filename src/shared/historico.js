@@ -28,6 +28,7 @@ export const FONTES = {
   cc0910: { nome: 'CartaCapital: as primeiras pesquisas do 2º turno (inclui PoderData de 8/10/2026)', url: 'https://www.cartacapital.com.br/politica/o-que-disseram-as-primeiras-pesquisas-sobre-flavio-bolsonaro-x-lula-no-2o-turno/' },
   oeste1210: { nome: 'Revista Oeste: DataTrends do 2º turno (7 a 9/10/2026)', url: 'https://revistaoeste.com/politica/datatrends-flavio-tem-50-contra-44-de-lula-no-2o-turno/' },
   folha1010: { nome: 'Folha de S.Paulo: Ipespe/Abrapel do 2º turno (6 a 8/10/2026)', url: 'https://www1.folha.uol.com.br/poder/2026/10/flavio-bolsonaro-tem-527-dos-votos-validos-no-2o-turno-contra-473-de-lula-diz-ipespe.shtml' },
+  tseDados: { nome: 'TSE, Portal de Dados Abertos: resultados de 1989 a 2022 (votação por UF e por município e zona)', url: 'https://dadosabertos.tse.jus.br/dataset/?groups=resultados' },
   tse1t2026: { nome: 'TSE: resultado do 1º turno de 2026 (arquivo oficial de divulgação)', url: 'https://resultados.tse.jus.br/' },
 };
 

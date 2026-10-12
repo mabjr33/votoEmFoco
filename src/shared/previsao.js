@@ -11,6 +11,7 @@ import {
   ELEICOES, PESQUISAS_2T_FINAIS, PESQUISAS_1T_FINAIS, PESQUISAS_2026_2T, TRANSFERENCIAS_2026, ELIMINADOS_2026,
 } from './historico.js';
 import { suggestedFlow } from './presets.js';
+import { SEGUNDOS_TURNOS } from './segundos-turnos.js';
 
 export const partilha = (a, b) => (a + b > 0 ? (100 * a) / (a + b) : 50);
 export const media = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
@@ -151,26 +152,40 @@ export function modeloPesquisas({ pesquisas = PESQUISAS_2026_2T, distanciaPp = 1
 }
 
 /**
- * Modelo H — padrão histórico 1º → 2º turno. Para cada eleição com 2º turno:
- * k = (partilha do líder no 2º turno − 50) / (partilha do líder entre os dois no 1º turno − 50).
- * Aplica a mediana de k a 2026. Incerteza: desvio dos resíduos dessa regra nas eleições passadas.
+ * Modelo H — o histórico de 2º turnos no Brasil (src/shared/segundos-turnos.js, arquivos do TSE):
+ * todas as disputas de presidente e de governador que foram ao 2º turno de 1989 a 2022.
+ * x = partilha do líder entre os dois no 1º turno − 50; y = partilha dele no 2º turno − 50.
+ * A regra y = b·x (quanto da vantagem do 1º turno sobra) é ajustada com todas as disputas.
+ * Incerteza: o erro dessa regra nas disputas parecidas com 2026 em votos fora dos dois finalistas
+ * (até 10 pontos de diferença); com menos votos "soltos", o 2º turno varia menos.
  */
-export function modeloHistorico() {
-  const pontos = comSegundoTurno().map((e) => {
-    const s1 = partilha(e.lider.t1, e.segundo.t1);
-    const s2 = partilha(e.lider.t2, e.segundo.t2);
-    return { ano: e.ano, lider: e.lider.nome, s1: r2(s1), s2: r2(s2), k: (s2 - 50) / (s1 - 50) };
-  });
-  const k = mediana(pontos.map((p) => p.k));
-  const res = pontos.map((p) => p.s2 - (50 + k * (p.s1 - 50)));
-  const sd = Math.sqrt(res.reduce((s, x) => s + x * x, 0) / (res.length - 1));
+export function modeloHistorico({ disputas = SEGUNDOS_TURNOS } = {}) {
   const e26 = eleicao(2026);
   const s1 = partilha(e26.lider.t1, e26.segundo.t1);
+  const outros26 = 100 - e26.lider.t1 - e26.segundo.t1;
+  const pts = disputas.map((d) => {
+    const p1 = partilha(d.a.p1, d.b.p1);
+    return { ano: d.ano, cargo: d.cargo, uf: d.uf, lider: d.a.nome, segundo: d.b.nome, s1: p1, s2: d.a.p2, outros: 100 - d.a.p1 - d.b.p1, venceu: d.a.p2 > 50 };
+  });
+  const b = pts.reduce((s, p) => s + (p.s1 - 50) * (p.s2 - 50), 0) / pts.reduce((s, p) => s + (p.s1 - 50) ** 2, 0);
+  const residuo = (p) => p.s2 - (50 + b * (p.s1 - 50));
+  const proximos = pts.filter((p) => Math.abs(p.outros - outros26) <= 10);
+  const base = proximos.length >= 15 ? proximos : pts;
+  const sd = Math.sqrt(base.reduce((s, p) => s + residuo(p) ** 2, 0) / (base.length - 1));
+  // Quantas vezes o líder do 1º turno venceu, por tamanho da vantagem entre os dois
+  const faixas = [[50, 52], [52, 55], [55, 60], [60, 100]].map(([de, ate]) => {
+    const g = pts.filter((p) => p.s1 >= de && p.s1 < ate);
+    return { de, ate, n: g.length, venceu: g.filter((p) => p.venceu).length };
+  });
+  const presidente = pts.filter((p) => p.cargo === 'presidente').map((p) => ({ ano: p.ano, lider: p.lider, s1: r2(p.s1), s2: r2(p.s2), k: r2((p.s2 - 50) / (p.s1 - 50)) }));
   return {
     id: 'historico',
-    nome: 'Padrão histórico do 1º para o 2º turno',
-    centro: r2(50 + k * (s1 - 50)), sd: r2(sd),
-    detalhe: { pontos: pontos.map((p) => ({ ...p, k: r2(p.k) })), k: r2(k), s1: r2(s1), residuos: res.map(r2) },
+    nome: 'Histórico de 2º turnos (1989–2022)',
+    centro: r2(50 + b * (s1 - 50)), sd: r2(sd),
+    detalhe: {
+      n: pts.length, nPresidente: presidente.length, b: r2(b), k: r2(b), s1: r2(s1), outros: r2(outros26),
+      nParecidos: base.length, viradas: pts.filter((p) => !p.venceu).length, faixas, pontos: presidente,
+    },
   };
 }
 
