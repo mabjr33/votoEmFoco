@@ -254,11 +254,11 @@ function blocoGovernadores(ctx) {
   return `<section><h2>Governadores no 2º turno</h2>
     <p class="intro">Não reunimos pesquisas estaduais de 2º turno, então aqui vale só o cenário-base: votos do 1º turno de cada estado, com os eleitores dos eliminados divididos pela proximidade dos partidos e incerteza de 3 pp. É a previsão mais frágil desta página.</p>
     <div class="tabela-rolar"><table class="tabela"><thead><tr><th>Estado</th><th>1º colocado</th><th class="n">1º turno</th><th>2º colocado</th><th class="n">1º turno</th><th class="n">Cenário-base</th><th class="n">Chance</th></tr></thead><tbody>${linhas.join('')}</tbody></table></div>
-    <p class="nota" style="margin-top:8px">Percentuais em votos válidos. A lista de disputas vem da configuração oficial do TSE quando ela publica o 2º turno. No Rio de Janeiro, o Brasil de Fato informou em 6/10 que a candidatura de Garotinho ainda dependia de decisão do TSE, o que pode mudar a disputa (${fonte('bdf0610')}).</p></section>`;
+    <p class="nota" style="margin-top:8px">Percentuais em votos válidos. A lista de disputas vem da configuração oficial do TSE quando ela publica o 2º turno.</p></section>`;
 }
 
 function blocoMetodo() {
-  const usadas = new Set(['bpmoney', 'tse2018', 'ihu2018', 'cf2014', 'cf2022', 'pp2026', 'abst2026', 'abstAB', 'abstC24', 'opovoAbst', 'wiki2010', 'wiki2018', 'wiki2022', 'df0310', 'quaest0310', 'rtbd0110', 'df0810', 'atlas0910', 'vox0910', 'cnt0310', 'bdf0610']);
+  const usadas = new Set(['bpmoney', 'tse2018', 'ihu2018', 'cf2014', 'cf2022', 'pp2026', 'abst2026', 'abstAB', 'abstC24', 'opovoAbst', 'wiki2010', 'wiki2018', 'wiki2022', 'df0310', 'quaest0310', 'rtbd0110', 'df0810', 'atlas0910', 'vox0910', 'cnt0310']);
   const lista = [...usadas].filter((k) => FONTES[k]).map((k) => `<li><a href="${esc(FONTES[k].url)}" target="_blank" rel="noopener">${esc(FONTES[k].nome)}</a></li>`).join('');
   return `<section class="metodo"><h2>Como foi feito e o que fica de fora</h2>
     <ul class="pontos">

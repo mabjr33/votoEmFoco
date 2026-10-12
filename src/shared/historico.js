@@ -25,7 +25,6 @@ export const FONTES = {
   atlas0910: { nome: 'Gazeta do Povo: AtlasIntel do 2º turno (3 a 8/10/2026)', url: 'https://www.gazetadopovo.com.br/eleicoes/2026/pesquisa-eleitoral-2026/atlasintel-presidente-outubro-2026-segundo-turno/' },
   vox0910: { nome: 'Estado de Minas: Vox Brasil do 2º turno (5 a 7/10/2026)', url: 'https://em.com.br/politica/2026/10/7517782-pesquisa-vox-lula-tem-442-e-flavio-bolsonaro-427-no-2-turno.html' },
   cnt0310: { nome: 'Bem Paraná: CNT/MDA de 3/10/2026', url: 'https://www.bemparana.com.br/eleicoes-2026/pesquisa-cnt/amp/' },
-  bdf0610: { nome: 'Brasil de Fato: pesquisas do 2º turno e situação no RJ (6/10/2026)', url: 'https://www.brasildefato.com.br/2026/10/06/datafolha-quaest-atlasintel-quando-saem-as-pesquisas-de-2o-turno-entre-lula-e-flavio/' },
 };
 
 /**
