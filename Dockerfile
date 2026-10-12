@@ -4,6 +4,8 @@ COPY package.json ./
 COPY config ./config
 COPY src ./src
 COPY public ./public
+# scripts: npm run baixar dentro do contêiner, para testar o acesso ao TSE a partir do servidor
+COPY scripts ./scripts
 ENV NODE_ENV=production PORT=3000
 RUN mkdir -p /app/data && chown -R node:node /app/data
 USER node

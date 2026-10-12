@@ -110,3 +110,16 @@ test('segurança: teto de conexões ao vivo', async () => {
     srv.close();
   }
 });
+
+test('prévia ao compartilhar: PUBLIC_URL vira URL absoluta; valor estranho é ignorado', async () => {
+  for (const [publicUrl, esperado] of [['https://exemplo.com.br/', 'content="https://exemplo.com.br/og.png"'], ['"><script>x</script>', 'content="/og.png"']]) {
+    const srv = createApp({ publicUrl }, coletorFalso());
+    const base = await ouvir(srv);
+    try {
+      const html = await (await fetch(`${base}/`)).text();
+      assert.ok(html.includes(esperado), publicUrl);
+      assert.ok(!html.includes('{{URL}}'));
+      assert.ok(!html.includes('<script>x'));
+    } finally { srv.close(); }
+  }
+});

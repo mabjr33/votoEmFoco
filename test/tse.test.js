@@ -132,3 +132,30 @@ test('cliente pausa após 403 (proteção contra bloqueio) e serve cache', async
     await rm(dataDir, { recursive: true, force: true });
   }
 });
+
+test('cliente registra a última resposta válida do TSE (base do aviso de dados parados)', async () => {
+  const http = await import('node:http');
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  let falhar = false;
+  const srv = http.createServer((req, res) => { if (falhar) { res.writeHead(500); return res.end(); } res.writeHead(200, { 'Content-Type': 'application/json', ETag: '"a"' }); res.end('{"ok":1}'); });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'ok-'));
+  try {
+    const c = new TseClient({ base: `http://127.0.0.1:${srv.address().port}`, dataDir: dir, maxRps: 50 }, { log: { warn() {} } });
+    await c.init();
+    assert.equal(c.ultimoOk, 0);
+    await c.getJson('/x.json');
+    const t1 = c.ultimoOk;
+    assert.ok(t1 > 0);
+    falhar = true;
+    await new Promise((r) => setTimeout(r, 5));
+    const r = await c.getJson('/x.json');
+    assert.equal(r.status, 'cached', 'erro do TSE: serve o cache');
+    assert.equal(c.ultimoOk, t1, 'erro não conta como resposta válida');
+  } finally {
+    srv.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -12,10 +12,13 @@ import { TseClient } from './tse/client.js';
 import { Collector } from './collector.js';
 import { Noticias } from './noticias/coletor.js';
 import { ELEICOES } from './shared/historico.js';
+import { Pesquisas } from './pesquisas.js';
+import { criarAdmin } from './admin.js';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.png': 'image/png',
+  '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8',
 };
 const STATIC_ROOTS = { '/shared/': path.join(ROOT, 'src', 'shared'), '/': path.join(ROOT, 'public') };
 const COMPRIMIVEL = /^(text\/|application\/json|image\/svg)/;
@@ -25,8 +28,8 @@ const FOTO_TIPOS = /^image\/(jpeg|png|webp|gif)$/;
 // (nada inline): um texto malicioso vindo de um feed ou de um arquivo não consegue rodar código.
 const SEGURANCA = {
   'Content-Security-Policy': [
-    "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data:", "connect-src 'self'",
+    "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'", "img-src 'self' data:", "connect-src 'self'",
     "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'self'",
   ].join('; '),
   'X-Content-Type-Options': 'nosniff',
@@ -62,10 +65,19 @@ function enviar(req, res, c, cacheControl) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-export function createApp(cfg, collector, noticias = null) {
+export function createApp(cfg, collector, noticias = null, { pesquisas = new Pesquisas(null), log = console } = {}) {
   const sseClients = new Set();
+  const avisarTodos = (ev) => { const msg = `event: update
+data: ${JSON.stringify(ev)}
+
+`; for (const res of sseClients) res.write(msg); };
+  const admin = criarAdmin({
+    token: cfg.adminToken, collector, noticias, pesquisas, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
+    aoMudarPesquisas: () => avisarTodos({ raceId: 'pesquisas' }),
+  });
   // Cada conexão ao vivo segura um socket aberto: com teto, uma enxurrada de conexões não derruba o servidor
   const maxSse = Number(cfg.maxSse || process.env.MAX_SSE || 5000);
+  const urlPublica = /^https?:\/\/[^\s"<>]+$/.test(cfg.publicUrl || '') ? cfg.publicUrl.replace(/\/+$/, '') : '';
   const payloadCache = new Map(); // raceId -> { version, ready, json }
   const jsonCache = new Map(); // rota -> corpo do último JSON enviado (reaproveitado enquanto não muda)
   const staticCache = new Map(); // arquivo -> { mtimeMs, size, corpo }
@@ -103,11 +115,15 @@ export function createApp(cfg, collector, noticias = null) {
         if (!st.isFile()) continue;
         let e = staticCache.get(file);
         if (!e || e.mtimeMs !== st.mtimeMs || e.size !== st.size) {
-          e = { mtimeMs: st.mtimeMs, size: st.size, corpo: corpo(await readFile(file), MIME[path.extname(file)] || 'application/octet-stream') };
+          let buf = await readFile(file);
+          // Página inicial: endereço público nas tags de compartilhamento (precisam de URL absoluta)
+          if (path.basename(file) === 'index.html') buf = Buffer.from(buf.toString('utf8').replaceAll('{{URL}}', urlPublica));
+          e = { mtimeMs: st.mtimeMs, size: st.size, corpo: corpo(buf, MIME[path.extname(file)] || 'application/octet-stream') };
           staticCache.set(file, e);
         }
         // no-cache: o navegador sempre confere, mas recebe 304 (sem corpo) se o arquivo não mudou
-        return enviar(req, res, e.corpo, 'no-cache');
+        // Fontes e a imagem de prévia quase nunca mudam: cache longo. O resto revalida sempre.
+        return enviar(req, res, e.corpo, /^\/(fonts\/|og\.png$)/.test(urlPath) ? 'public, max-age=2592000' : 'no-cache');
       } catch { /* tenta próximo */ }
     }
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -121,7 +137,9 @@ export function createApp(cfg, collector, noticias = null) {
       if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
       const url = new URL(req.url, 'http://x');
       const p = url.pathname;
+      if (p.startsWith('/api/admin/') && await admin(req, res, p)) return;
       if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); return res.end(); }
+      if (p === '/api/pesquisas') return sendJson(req, res, { versao: pesquisas.versao, itens: pesquisas.itens }, { maxAge: 30 });
 
       if (p === '/api/status') return sendJson(req, res, collector.status(), { maxAge: 2 });
       if (p === '/api/races') return sendJson(req, res, collector.raceList(), { maxAge: 2 });
@@ -179,7 +197,10 @@ export async function main(overrides = {}) {
     ...cfg.noticias, dataDir: cfg.dataDir,
     contexto: () => ({ ...collector.contextoNoticias(), apelidos: [e26.lider.nome, e26.segundo.nome] }),
   }) : null;
-  const server = createApp(cfg, collector, noticias);
+  const pesquisas = new Pesquisas(cfg.dataDir);
+  await pesquisas.carregar();
+  const server = createApp(cfg, collector, noticias, { pesquisas });
+  if (cfg.adminToken) console.log('[admin] painel em /admin.html (senha: ADMIN_TOKEN)');
   await new Promise((r) => server.listen(cfg.port, cfg.host, r));
   console.log(`[servidor] http://localhost:${cfg.port}  (fonte: ${cfg.base}/${cfg.ambiente}, polling ${cfg.pollIntervalMs / 1000}s, máx ${cfg.maxRps} req/s)`);
   collector.start();

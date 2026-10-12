@@ -24,6 +24,7 @@ export class TseClient {
     this.lastRefill = Date.now();
     this.inFlight = 0;
     this.stats = { requests: 0, ok: 0, notModified: 0, notFound: 0, errors: 0, skipped: 0, lastError: null };
+    this.ultimoOk = 0; // última resposta válida do TSE (200 ou 304): base do aviso de dados parados
   }
 
   async init() {
@@ -131,6 +132,7 @@ export class TseClient {
       const res = await fetch(this.cfg.base + p, { headers, signal: ctrl.signal });
       if (res.status === 304 && cached) {
         this.stats.notModified++;
+        this.ultimoOk = Date.now();
         return { status: 'not-modified', data: cached.body, fromCache: true, fetchedAt: cached.fetchedAt };
       }
       if (res.status === 404) {
@@ -158,6 +160,7 @@ export class TseClient {
       };
       await this.writeCache(p, entry);
       this.stats.ok++;
+      this.ultimoOk = Date.now();
       return { status: 'ok', data: body, fromCache: false, fetchedAt: entry.fetchedAt };
     } catch (err) {
       this.stats.errors++;

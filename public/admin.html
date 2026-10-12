@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Painel</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body class="admin">
+  <main>
+    <h1>Painel</h1>
+    <section id="entrar">
+      <p class="intro">Digite a senha definida em <code>ADMIN_TOKEN</code>. Ela fica só nesta aba do navegador.</p>
+      <form id="form-entrar" class="linha-campo">
+        <input class="entrada" id="senha" type="password" autocomplete="current-password" aria-label="Senha" required>
+        <button class="botao" type="submit">Entrar</button>
+      </form>
+      <p class="erro" id="erro-entrar" role="alert"></p>
+    </section>
+
+    <div id="conteudo" hidden>
+      <section>
+        <h2>Saúde</h2>
+        <div id="saude" aria-live="polite"></div>
+      </section>
+
+      <section>
+        <h2>Pesquisas detectadas nas manchetes</h2>
+        <p class="intro">Manchetes com número de registro nacional que ainda não estão no modelo. Abra a fonte, confira os números e preencha abaixo. Nada entra sem aprovação.</p>
+        <div id="detectadas"></div>
+      </section>
+
+      <section>
+        <h2>Aprovar pesquisa</h2>
+        <form id="form-pesquisa" class="grade-form">
+          <label>Registro no TSE<input class="entrada" name="registro" placeholder="BR-12345/2026" required></label>
+          <label>Instituto<input class="entrada" name="instituto" required></label>
+          <label>Campo (datas)<input class="entrada" name="campo" placeholder="14–16/10"></label>
+          <label>Divulgação<input class="entrada" name="divulgacao" placeholder="17/10"></label>
+          <label>Entrevistas<input class="entrada" name="amostra" inputmode="numeric" required></label>
+          <label>Margem de erro (pp)<input class="entrada" name="margem" inputmode="decimal" required></label>
+          <fieldset><legend>Votos totais (%)</legend>
+            <label><span id="rot-a">Candidato A</span><input class="entrada" name="flavio" inputmode="decimal"></label>
+            <label><span id="rot-b">Candidato B</span><input class="entrada" name="lula" inputmode="decimal"></label>
+          </fieldset>
+          <fieldset><legend>Votos válidos (%), como o instituto divulgou</legend>
+            <label><span id="rot-va">Candidato A</span><input class="entrada" name="flavioValido" inputmode="decimal"></label>
+            <label><span id="rot-vb">Candidato B</span><input class="entrada" name="lulaValido" inputmode="decimal"></label>
+          </fieldset>
+          <label class="largo">Link da fonte<input class="entrada" name="fonteUrl" type="url" placeholder="https://" required></label>
+          <label>Nome da fonte<input class="entrada" name="fonteNome" placeholder="ex.: Folha"></label>
+          <div class="largo"><button class="botao" type="submit">Aprovar e publicar</button> <span class="erro" id="erro-pesquisa" role="alert"></span></div>
+        </form>
+      </section>
+
+      <section>
+        <h2>Aprovadas no painel</h2>
+        <div id="aprovadas"></div>
+      </section>
+      <p><button class="botao-2" id="sair" type="button">Sair</button></p>
+    </div>
+  </main>
+  <script type="module" src="/js/admin.js"></script>
+</body>
+</html>

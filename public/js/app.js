@@ -5,7 +5,7 @@ import { $, $$, fmtInt, fmtPct, fmtPp, esc, clamp, curto, parseVotos, redondo, t
 import { corPartido, textoSobre } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
 import { NOME_SITE } from './marca.js';
-import { renderPrevisoes, fotosFinalistas } from './previsoes.js';
+import { renderPrevisoes, fotosFinalistas, definirPesquisasExtras } from './previsoes.js';
 import { renderNoticias, contarNovas } from './noticias.js';
 import MAPA from './mapa-brasil.js';
 
@@ -30,6 +30,11 @@ async function getJSON(url) { const r = await fetch(url, { cache: 'no-cache' });
 
 // ---------- dados ----------
 async function carregarRace(id) { const p = await getJSON(`/api/race/${id}`); if (id === 'pres') S.pres = p; else S.gov[p.scope] = p; }
+/** Pesquisas aprovadas no painel: entram nos modelos da aba Previsões. */
+async function carregarPesquisas() {
+  const d = await getJSON('/api/pesquisas').catch(() => null);
+  if (d) S.pesqChave = definirPesquisasExtras(d.itens || []);
+}
 async function carregarTudo() {
   const [status, races, endorsers, exterior, eventos] = await Promise.all([
     getJSON('/api/status').catch(() => null), getJSON('/api/races').catch(() => []), getJSON('/api/endorsers').catch(() => ({})),
@@ -37,6 +42,7 @@ async function carregarTudo() {
   ]);
   Object.assign(S, { status, races, endorsers, exterior, eventos });
   S.noticias = await getJSON('/api/noticias').catch(() => S.noticias);
+  await carregarPesquisas();
   await Promise.all(races.map((r) => carregarRace(r.id).catch(() => {})));
   if (S.turno === null && S.pres) S.turno = temVotos(S.pres) ? 2 : 1;
 }
@@ -130,12 +136,26 @@ function renderTopo() {
   $('#teste').hidden = !S.status?.modoTeste;
   const dr = S.status?.dadosReais;
   if (dr) $('#teste').textContent = `Modo de teste. O 1º turno é o real do TSE (baixado em ${new Date(dr.baixadoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}). O 2º turno é uma simulação sorteada a cada execução: não é resultado nem previsão.`;
+  const parado = renderAlertaTse();
   const el = $('#fonte');
   const sm = S.pres?.live?.summary;
   if (S.status?.pausedUntil && Date.parse(S.status.pausedUntil) > Date.now()) el.innerHTML = '<span class="ponto"></span>Consultas ao TSE em pausa para respeitar o limite de acesso. Mostrando o último dado recebido.';
+  else if (parado && temVotos(S.pres)) el.innerHTML = `<span class="ponto"></span>Último dado recebido: totalização das ${esc(hora(sm.totalizadoEm))}, com ${fmtPct(sm.secoes.pst, 1)}% das seções.`;
   else if (temVotos(S.pres)) el.innerHTML = `<span class="ponto ${sm.totalFinal ? '' : 'vivo'}"></span>${sm.totalFinal ? 'Apuração encerrada' : 'Ao vivo'}, ${S.status?.modoTeste ? 'em simulação de teste' : 'com dados do TSE'}. Última totalização às ${esc(hora(sm.totalizadoEm))}, com ${fmtPct(sm.secoes.pst, 1)}% das seções.`;
   else if (S.pres) el.innerHTML = '<span class="ponto"></span>A apuração do 2º turno começa em 25 de outubro, às 17h de Brasília.';
   else el.textContent = 'Carregando os dados do TSE…';
+}
+
+/** Dados parados: o TSE não responde há mais de 3 ciclos de consulta (mínimo 90 s). */
+function renderAlertaTse() {
+  const st = S.status, el = $('#alerta-tse');
+  const limite = Math.max(90_000, 3 * (st?.pollIntervalMs || 15_000));
+  const parado = st?.ready && (st.tseSemRespostaMs === null || st.tseSemRespostaMs > limite);
+  el.hidden = !parado;
+  if (!parado) return false;
+  const min = st.tseSemRespostaMs === null ? null : Math.max(1, Math.round(st.tseSemRespostaMs / 60_000));
+  el.textContent = `${min === null ? 'O servidor ainda não conseguiu falar com o TSE' : `Sem resposta do TSE há ${min} min (desde ${new Date(st.tseOkEm).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).replace(':', 'h')})`}. Os números podem estar desatualizados; a página se atualiza sozinha quando o TSE voltar.`;
+  return true;
 }
 
 function render() {
@@ -165,7 +185,7 @@ function render() {
 // =================== PREVISÕES ===================
 /** Os modelos não mudam com a apuração; só redesenha quando chegam dados novos do 1º turno. */
 function mostrarPrevisoes() {
-  const chave = `${S.pres?.baseline?.summary?.eleitores?.te || 0}:${Object.keys(S.gov).length}`;
+  const chave = `${S.pres?.baseline?.summary?.eleitores?.te || 0}:${Object.keys(S.gov).length}:${S.pesqChave || ''}`;
   if (S.prevDesenhada === chave) return;
   S.prevDesenhada = chave;
   S.dicasPrev = renderPrevisoes($('#vista-previsoes'), {
@@ -375,7 +395,8 @@ function blocoEvolucao(r) {
   const pts = (r.live.history || []).filter((h) => h.pA !== null && h.pst > 0);
   if (S.turno !== 2 || pts.length < 2) return '';
   const [A, B] = fins(r);
-  const W = 720, H = 200, pad = { l: 40, r: 8, t: 10, b: 26 };
+  // Desenhado na largura da tela: no celular o texto não encolhe junto com o gráfico
+  const W = Math.round(Math.min(720, Math.max(300, document.documentElement.clientWidth - 32))), H = W < 480 ? 180 : 200, pad = { l: 40, r: 8, t: 10, b: 26 };
   const vals = pts.flatMap((p) => [p.pA, p.pB]);
   const lo = Math.max(0, Math.floor(Math.min(...vals, 50) / 5) * 5 - 5), hi = Math.min(100, Math.ceil(Math.max(...vals, 50) / 5) * 5 + 5);
   const x = (v) => pad.l + (W - pad.l - pad.r) * (v / 100), y = (v) => pad.t + (H - pad.t - pad.b) * (1 - (v - lo) / (hi - lo));
@@ -384,13 +405,14 @@ function blocoEvolucao(r) {
   return `<section><h2>Como a apuração andou</h2><p class="intro">${quad(CA)}${esc(A.nmu)} &nbsp; ${quad(CB)}${esc(B.nmu)}. Percentual dos votos válidos conforme as seções foram totalizadas.</p>
     <svg class="grafico" viewBox="0 0 ${W} ${H}" role="img" aria-label="Evolução dos percentuais durante a apuração">
       ${[lo, 50, hi].map((v) => `<line class="grade" x1="${pad.l}" x2="${W - pad.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${pad.l - 8}" y="${y(v) + 4}" text-anchor="end">${v}%</text>`).join('')}
-      ${[0, 25, 50, 75, 100].map((v) => `<text x="${x(v)}" y="${H - 6}" text-anchor="middle">${v}%</text>`).join('')}
+      ${(W < 480 ? [0, 50, 100] : [0, 25, 50, 75, 100]).map((v) => `<text x="${x(v)}" y="${H - 6}" text-anchor="${v === 100 ? 'end' : 'middle'}">${v}%</text>`).join('')}
       <path d="${linha('pA')}" fill="none" stroke="var(--a)" stroke-width="2"/><path d="${linha('pB')}" fill="none" stroke="var(--b)" stroke-width="2"/>
       <circle cx="${x(u.pst)}" cy="${y(u.pA)}" r="4" fill="var(--a)" stroke="var(--bg)" stroke-width="2"/><circle cx="${x(u.pst)}" cy="${y(u.pB)}" r="4" fill="var(--b)" stroke="var(--bg)" stroke-width="2"/></svg></section>`;
 }
 
 function blocoCronologia() {
-  const itens = S.eventos.filter((e) => e.tipo === 'secoes' && e.a && e.b).slice(0, 14).map((e) =>
+  // No celular, só os lotes mais recentes (a lista inteira ocupava várias telas)
+  const itens = S.eventos.filter((e) => e.tipo === 'secoes' && e.a && e.b).slice(0, document.documentElement.clientWidth < 600 ? 6 : 14).map((e) =>
     `<li><span class="h">${esc(e.hora || '')}</span><span>${esc(e.texto)}. ${esc(e.a.nmu)} ${fmtPct(e.a.pvap)}%, ${esc(e.b.nmu)} ${fmtPct(e.b.pvap)}%.</span></li>`).join('');
   return `<section><h2>Registro da apuração</h2><p class="intro">Cada novo lote de seções totalizadas pelo TSE, do mais recente para o mais antigo.</p>${itens ? `<ul class="cronologia">${itens}</ul>` : '<p class="nota">Ainda não há seções do 2º turno totalizadas.</p>'}</section>`;
 }
@@ -803,7 +825,8 @@ function conectar() {
         if (ids.includes('*')) await carregarTudo();
         else {
           if (ids.includes('noticias')) S.noticias = await getJSON('/api/noticias').catch(() => S.noticias);
-          await Promise.all(ids.filter((i) => i !== 'exterior' && i !== 'noticias').map((i) => carregarRace(i).catch(() => {})));
+          if (ids.includes('pesquisas')) await carregarPesquisas();
+          await Promise.all(ids.filter((i) => !['exterior', 'noticias', 'pesquisas'].includes(i)).map((i) => carregarRace(i).catch(() => {})));
           [S.exterior, S.eventos, S.status] = await Promise.all([getJSON('/api/exterior').catch(() => S.exterior), getJSON('/api/eventos').catch(() => S.eventos), getJSON('/api/status').catch(() => S.status)]);
         }
         if (S.turno === 1 && temVotos(S.pres) && !S.turnoEscolhido) S.turno = 2;

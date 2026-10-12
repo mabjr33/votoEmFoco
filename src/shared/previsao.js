@@ -207,8 +207,8 @@ export function combinar(modelos) {
  * Cenários de erro: o que a média das pesquisas pós-1º turno vira se elas errarem
  * como em eleições passadas. Não são previsões, são "e se".
  */
-export function cenariosErro() {
-  const bruto = modeloPesquisas().detalhe.bruto;
+export function cenariosErro({ pesquisas = PESQUISAS_2026_2T } = {}) {
+  const bruto = modeloPesquisas({ pesquisas }).detalhe.bruto;
   const e2 = errosPesquisas(2);
   const e1 = errosPesquisas(1);
   const porAno2 = erroPorAno(e2);
@@ -243,13 +243,13 @@ export function previsaoAbstencao() {
   };
 }
 
-/** Todas as previsões nacionais de uma vez. */
-export function previsoes() {
-  const modelos = [modeloPesquisas(), modeloHistorico(), modeloTransferencia()];
+/** Todas as previsões nacionais de uma vez. pesquisas: as fixas do histórico mais as aprovadas no painel. */
+export function previsoes({ pesquisas = PESQUISAS_2026_2T } = {}) {
+  const modelos = [modeloPesquisas({ pesquisas }), modeloHistorico(), modeloTransferencia()];
   return {
     modelos,
     combinado: combinar(modelos),
-    cenarios: cenariosErro(),
+    cenarios: cenariosErro({ pesquisas }),
     abstencao: previsaoAbstencao(),
     comparativo: comparativo1T(),
     erros2T: errosPesquisas(2),

@@ -10,7 +10,17 @@ import { desenharBrasil } from './mapa-br.js';
 const CA = 'var(--a)', CB = 'var(--b)';
 const E26 = ELEICOES.find((e) => e.ano === 2026);
 const NOME_F = E26.lider.nome, NOME_L = E26.segundo.nome;
-const P = previsoes();
+// Pesquisas fixas do histórico + as aprovadas no painel (chegam de /api/pesquisas)
+let PESQ = PESQUISAS_2026_2T;
+let P = previsoes();
+const numeroPorExtenso = (n) => ['nenhuma', 'uma', 'duas', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez'][n] ?? String(n);
+/** Junta as pesquisas aprovadas no painel e refaz os modelos. Devolve uma chave que muda quando a lista muda. */
+export function definirPesquisasExtras(extras = []) {
+  const fixas = new Set(PESQUISAS_2026_2T.map((p) => p.registro));
+  PESQ = [...extras.filter((p) => !fixas.has(p.registro)), ...PESQUISAS_2026_2T];
+  P = previsoes({ pesquisas: PESQ });
+  return PESQ.map((p) => p.registro).join(',');
+}
 const pos = (v, lo, hi) => Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100));
 const quad = (cor) => `<i class="marca" style="background:${cor}"></i>`;
 const pct = (v, d = 1) => `${fmtPct(v, d)}%`;
@@ -95,12 +105,12 @@ function blocoModelos() {
 }
 
 function blocoPesquisas() {
-  const linhas = PESQUISAS_2026_2T.map((p) => {
+  const linhas = PESQ.map((p) => {
     const fv = p.flavioValido, lv = p.lulaValido;
     const cor = fv == null ? 'inherit' : fv >= 50 ? CA : CB;
     return `<tr class="${p.depois1T ? '' : 'antes'}"><td>${esc(p.instituto)}<small>${esc(p.registro)}</small></td><td>${esc(p.campo)}</td><td class="n">${fmtInt(p.amostra)}</td>
       <td class="n">${p.flavio == null ? '–' : fmtPct(p.flavio, 1)}</td><td class="n">${p.lula == null ? '–' : fmtPct(p.lula, 1)}</td>
-      <td class="n forte" style="color:${cor}">${fv == null ? '–' : `${fmtPct(fv, 1)} a ${fmtPct(lv, 1)}`}</td><td>${fonte(p.fonte)}</td></tr>`;
+      <td class="n forte" style="color:${cor}">${fv == null ? '–' : `${fmtPct(fv, 1)} a ${fmtPct(lv, 1)}`}</td><td>${p.fonteUrl ? `<a href="${esc(p.fonteUrl)}" target="_blank" rel="noopener">${esc(p.fonteNome)}</a>` : fonte(p.fonte)}</td></tr>`;
   }).join('');
   return `<section><h2>As pesquisas do 2º turno</h2><p class="intro">Levantamentos registrados no TSE, com o número de registro. Em cinza, os feitos antes do 1º turno, que não entram no modelo. "Válidos" é como o instituto divulgou, sem brancos, nulos e indecisos.</p>
     <div class="tabela-rolar"><table class="tabela"><thead><tr><th>Instituto</th><th>Campo</th><th class="n">Entrevistas</th><th class="n">${esc(NOME_F.split(' ')[0])}</th><th class="n">${esc(NOME_L)}</th><th class="n">Válidos</th><th>Fonte</th></tr></thead><tbody>${linhas}</tbody></table></div></section>`;
@@ -124,7 +134,7 @@ function blocoErros() {
     <div class="filas">${filas}${eixo(lo, hi, 2, (v) => `${v > 0 ? '+' : ''}${v}`)}</div>
     <p class="nota" style="margin-top:12px">No 1º turno de 2026, as três pesquisas finais aqui reunidas davam ${esc(NOME_L)} à frente; ${esc(NOME_F.split(' ')[0])} terminou com ${pct(E26.lider.t1, 2)} contra ${pct(E26.segundo.t1, 2)}. Pesquisas de 1º turno erram mais que as de 2º, porque o eleitor ainda escolhe entre muitos nomes.</p>
     <h3 class="sub-h">E se as pesquisas de agora errarem como antes?</h3>
-    <p class="intro">Média das três pesquisas pós-1º turno (${pct(P.modelos[0].detalhe.bruto, 2)} para ${esc(NOME_F.split(' ')[0])}) ajustada por erros já observados. São hipóteses, não previsões.</p>
+    <p class="intro">Média das ${numeroPorExtenso(P.modelos[0].detalhe.usadas.length)} pesquisas pós-1º turno (${pct(P.modelos[0].detalhe.bruto, 2)} para ${esc(NOME_F.split(' ')[0])}) ajustada por erros já observados. São hipóteses, não previsões.</p>
     <ul class="cenarios">${cen}</ul></section>`;
 }
 

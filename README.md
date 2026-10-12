@@ -43,7 +43,7 @@ O `npm run baixar` usa o mesmo cliente do servidor (no máximo 8 requisições p
 ```bash
 npm run mock:ficticio            # dados sintéticos e nomes fictícios, feeds de notícias fictícios
 MOCK_DURATION=600 npm run mock   # mais lento (Windows: $env:MOCK_DURATION=600; npm run mock)
-npm test                         # 50 testes (3 deles conferem os dados de data/tse-1turno, se existir)
+npm test                         # 55 testes (3 deles conferem os dados de data/tse-1turno, se existir)
 ```
 
 Sem a pasta `data/tse-1turno`, o `npm run mock` também usa os dados fictícios.
@@ -64,6 +64,9 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data eleicoes-ao-vivo
 | `TSE_AMBIENTE` | `oficial` | `oficial` ou o ambiente de simulado do TSE |
 | `DATA_DIR` | `./data` | Cache em disco |
 | `MAX_SSE` | 5000 | Conexões ao vivo simultâneas (acima disso, a página consulta a cada 30 s) |
+| `ADMIN_TOKEN` | (vazio) | Senha do painel `/admin.html` (16+ caracteres). Sem ela, o painel não existe |
+| `PUBLIC_URL` | (vazio) | Endereço público, ex.: `https://seudominio.com.br` (prévia ao compartilhar) |
+| `TRUST_PROXY` | 0 | `1` atrás de proxy/CDN: usa o IP de `X-Forwarded-For` no limite de tentativas do painel |
 
 ## O simulador ao vivo
 
@@ -167,9 +170,28 @@ As cidades do exterior só são varridas quando o total do exterior muda, no má
 
 **Cidades do exterior no mapa:** o arquivo do TSE traz o nome da cidade, não o país nem as coordenadas. O país e a posição vêm de um cadastro próprio com 197 cidades (`scripts/cidades-exterior.mjs`). Uma cidade que não estiver nele aparece em "Outros locais" na lista, sem ponto no mapa. Para incluir, edite o cadastro e rode `node scripts/gerar-mundo.mjs public/js/mundo.js`. Esse script precisa de `world-atlas`, `topojson-client` e `d3-geo`, que só servem para gerar o arquivo.
 
+## Painel (saúde e pesquisas)
+
+Com `ADMIN_TOKEN` definido, `/admin.html` mostra:
+
+- **Saúde:** há quanto tempo o TSE respondeu, pausas por limite de acesso, UFs do 2º turno na configuração do TSE, disputas, feeds e conexões ao vivo. Atualiza a cada 10 s.
+- **Pesquisas:** lista as manchetes com registro nacional (BR-xxxxx/2026) que ainda não estão no modelo. Você abre a fonte, confere e digita os números; ao aprovar, a aba Previsões é recalculada para todos na hora. Nada é tirado automaticamente de manchete. As aprovadas ficam em `data/pesquisas.json` e podem ser removidas.
+
+A senha vai no cabeçalho `Authorization` (sem cookie) e fica só na aba do navegador. Dez senhas erradas bloqueiam o IP por alguns minutos.
+
+**Aviso de dados parados:** se o TSE não responde há mais de 3 ciclos de consulta (mínimo 90 s), aparece uma faixa no topo e a linha "Ao vivo" troca por "Último dado recebido".
+
+## Hospedagem
+
+O servidor precisa ficar ligado o tempo todo (consulta o TSE a cada 15 s), então serviços só de funções, como o Vercel, não servem sem reescrever.
+
+- **Render:** `render.yaml` pronto ("New > Blueprint"). O plano gratuito dorme após 15 min sem acesso: use um monitor externo (ex.: UptimeRobot a cada 10 min) e lembre que o disco é apagado a cada reinício (o 1º turno é baixado de novo).
+- **Oracle Cloud Always Free ou VPS:** `deploy/oracle.sh` instala Docker e Caddy (HTTPS automático) numa VM Ubuntu; precisa de um domínio apontando para a VM.
+- **Antes de tudo:** rode `npm run baixar` no servidor para confirmar que ele acessa o TSE. Na noite da eleição, um CDN (ex.: Cloudflare) na frente de `/api/*` absorve o pico.
+
 ## Segurança e desempenho
 
-- **Cabeçalhos:** Content-Security-Policy só com scripts do próprio site (nada inline), `nosniff`, proteção contra o site ser embutido em outro (`frame-ancestors 'self'`), Referrer-Policy e Permissions-Policy. HSTS quando o proxy informa HTTPS.
+- **Cabeçalhos:** Content-Security-Policy só com scripts, estilos e fontes do próprio site (scripts nada inline; as fontes Barlow ficam em `public/fonts`, sem Google Fonts), `nosniff`, proteção contra o site ser embutido em outro (`frame-ancestors 'self'`), Referrer-Policy e Permissions-Policy. HSTS quando o proxy informa HTTPS.
 - **Conteúdo de fora:** tudo que vem do TSE e dos feeds passa por escape antes de virar HTML; links de notícia só com `http(s)`; feed acima de 5 MB é recusado; o proxy de fotos só serve candidatos já carregados e só JPEG, PNG, WebP ou GIF.
 - **Arquivos:** os estáticos saem só de `public/` e `src/shared/`, sem como escapar da pasta.
 - **Carga:** cada resposta é comprimida uma vez (Brotli ou gzip) e reaproveitada enquanto não muda; ETag devolve 304 sem corpo. Num teste local, com 200 clientes simultâneos na apuração de presidente, o servidor foi de cerca de 1.000 para 15.000 respostas por segundo. Fotos iguais pedidas ao mesmo tempo viram uma só requisição ao TSE.

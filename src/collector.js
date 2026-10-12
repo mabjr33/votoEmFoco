@@ -446,6 +446,8 @@ export class Collector extends EventEmitter {
       lastPoll: this.lastPoll,
       lastConfig: this.lastConfig,
       pausedUntil: this.client.pausedUntil ? new Date(this.client.pausedUntil).toISOString() : null,
+      tseOkEm: this.client.ultimoOk ? new Date(this.client.ultimoOk).toISOString() : null,
+      tseSemRespostaMs: this.client.ultimoOk ? Date.now() - this.client.ultimoOk : null,
       http: this.client.stats,
       pollIntervalMs: this.cfg.pollIntervalMs,
       maxRps: this.cfg.maxRps,

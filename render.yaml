@@ -1,0 +1,15 @@
+# Render (https://render.com): "New > Blueprint" e aponte para este repositório.
+# Plano gratuito dorme após 15 min sem acesso; veja o README (seção Hospedagem).
+services:
+  - type: web
+    name: eleicoes-ao-vivo
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/status
+    envVars:
+      - key: TRUST_PROXY
+        value: "1"
+      - key: PUBLIC_URL
+        sync: false   # ex.: https://eleicoes-ao-vivo.onrender.com
+      - key: ADMIN_TOKEN
+        generateValue: true   # senha do painel (/admin.html); veja em Environment no Render

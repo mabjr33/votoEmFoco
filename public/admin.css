@@ -1,0 +1,22 @@
+/* Painel administrativo: reaproveita os tokens de styles.css */
+body.admin main { max-width: 920px; margin: 0 auto; padding: var(--e3) 16px var(--e5); }
+body.admin h1 { margin: 0 0 var(--e3); }
+body.admin section { margin-bottom: var(--e4); }
+body.admin .erro { color: var(--tinta); font-weight: 600; }
+body.admin code { background: var(--suave); padding: 1px 6px; border-radius: 4px; }
+.cartoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.cartao { background: var(--sup); border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; }
+.cartao .r { font-size: 13px; color: var(--tinta-2); }
+.cartao .v { font-size: 18px; font-weight: 600; margin-top: 2px; }
+.cartao.ruim { border-color: var(--tinta); box-shadow: inset 4px 0 0 var(--tinta); }
+.tab-admin { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
+.tab-admin th, .tab-admin td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--linha); vertical-align: top; }
+.lista-det { list-style: none; padding: 0; margin: 0; }
+.lista-det > li { border: 1px solid var(--linha); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; background: var(--sup); }
+.lista-det ul { margin: 6px 0 8px; padding-left: 18px; font-size: 14px; }
+.grade-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.grade-form label { display: grid; gap: 4px; font-size: 14px; color: var(--tinta-2); }
+.grade-form fieldset { border: 1px solid var(--linha); border-radius: 10px; padding: 8px 12px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grade-form legend { font-size: 14px; padding: 0 4px; }
+.grade-form .largo { grid-column: 1 / -1; }
+@media (max-width: 600px) { .grade-form { grid-template-columns: 1fr; } }

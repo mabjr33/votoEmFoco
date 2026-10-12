@@ -5,12 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>2º turno 2026</title>
   <meta name="description" content="Apuração do 2º turno em tempo real, com dados oficiais do TSE, e simulador de quem será eleito.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+  <!-- Prévia ao compartilhar. {{URL}} vira o endereço público (PUBLIC_URL) quando o servidor entrega a página. -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="2º turno 2026: apuração em tempo real">
+  <meta property="og:description" content="Dados oficiais do TSE, simulador de quem será eleito e previsões com o histórico desde 1989.">
+  <meta property="og:url" content="{{URL}}/">
+  <meta property="og:image" content="{{URL}}/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="2º turno 2026: apuração em tempo real com dados oficiais do TSE">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preload" href="/fonts/barlow-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/barlow-condensed-600-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <div id="alerta-tse" class="faixa-alerta" role="status" hidden></div>
   <div id="teste" class="faixa-teste" hidden>Modo de teste com dados sintéticos e nomes fictícios. Nada aqui é resultado real.</div>
 
   <header class="topo">

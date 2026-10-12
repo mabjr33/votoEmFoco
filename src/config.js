@@ -21,6 +21,9 @@ export function loadConfig(overrides = {}) {
     port: Number(env.PORT || 3000),
     host: env.HOST || '0.0.0.0',
     dataDir: env.DATA_DIR || path.join(ROOT, 'data'),
+    adminToken: env.ADMIN_TOKEN || null,
+    publicUrl: env.PUBLIC_URL || null,
+    trustProxy: env.TRUST_PROXY === '1',
     ...overrides,
   };
   // Proteção: o TSE bloqueia IPs acima de 100 req/s. Nunca passamos de 50.

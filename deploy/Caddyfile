@@ -1,0 +1,9 @@
+# Troque pelo seu domínio (o DNS precisa apontar para o IP do servidor).
+# O Caddy obtém e renova o certificado HTTPS sozinho.
+seudominio.com.br {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000 {
+		# SSE (atualização ao vivo): não segura a resposta em buffer
+		flush_interval -1
+	}
+}
