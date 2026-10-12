@@ -37,7 +37,7 @@ function rotulo(uf, d, [x, y]) {
   const ini = d.cand ? esc(iniciais(d.cand.nmu)) : '';
   const av = d.cand
     ? `<g class="av"><circle r="12.5" fill="${d.cor}" stroke="#0f0e0d" stroke-width="1.5"/><text class="ini" y="3.5">${ini}</text>
-       ${d.cand.sq ? `<image href="/api/foto/${esc(d.cand.sq)}" x="-11" y="-11" width="22" height="22" clip-path="url(#clip-av)" preserveAspectRatio="xMidYMid slice" onerror="this.remove()"/>` : ''}</g>`
+       ${d.cand.sq ? `<image href="/api/foto/${esc(d.cand.sq)}" x="-11" y="-11" width="22" height="22" clip-path="url(#clip-av)" preserveAspectRatio="xMidYMin slice"/>` : ''}</g>`
     : '';
   const yUf = d.cand ? 24 : -2;
   return `<g class="rot" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" pointer-events="none">${av}
@@ -58,7 +58,7 @@ function chamadas(dados, sel, extra) {
     const cor = d.cor || '#444';
     const txt = textoSobre(cor.startsWith('#') ? cor : '#444444');
     const av = d.cand ? `<circle cx="${x0 + 11}" cy="${y}" r="9" fill="${cor}" stroke="#0f0e0d"/>
-      ${d.cand.sq ? `<image href="/api/foto/${esc(d.cand.sq)}" x="${x0 + 3}" y="${y - 8}" width="16" height="16" clip-path="url(#clip-av-p)" preserveAspectRatio="xMidYMid slice" onerror="this.remove()" style="transform-box:fill-box"/>` : ''}` : '';
+      ${d.cand.sq ? `<image href="/api/foto/${esc(d.cand.sq)}" x="${x0 + 3}" y="${y - 8}" width="16" height="16" clip-path="url(#clip-av-p)" preserveAspectRatio="xMidYMin slice" style="transform-box:fill-box"/>` : ''}` : '';
     const tx = d.cand ? x0 + 24 : x0 + 8;
     return `<g class="chamada ${sel === u ? 'sel' : ''}" data-uf="${u}" tabindex="0" role="button" aria-label="${esc(d.titulo || u)}">
       <path d="M${cx.toFixed(1)},${cy.toFixed(1)} L${x0 - 18},${y} L${x0},${y}" class="linha"/>

@@ -43,7 +43,7 @@ O `npm run baixar` usa o mesmo cliente do servidor (no máximo 8 requisições p
 ```bash
 npm run mock:ficticio            # dados sintéticos e nomes fictícios, feeds de notícias fictícios
 MOCK_DURATION=600 npm run mock   # mais lento (Windows: $env:MOCK_DURATION=600; npm run mock)
-npm test                         # 45 testes (3 deles conferem os dados de data/tse-1turno, se existir)
+npm test                         # 50 testes (3 deles conferem os dados de data/tse-1turno, se existir)
 ```
 
 Sem a pasta `data/tse-1turno`, o `npm run mock` também usa os dados fictícios.
@@ -63,6 +63,7 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data eleicoes-ao-vivo
 | `TSE_BASE` | `https://resultados.tse.jus.br` | Host dos arquivos |
 | `TSE_AMBIENTE` | `oficial` | `oficial` ou o ambiente de simulado do TSE |
 | `DATA_DIR` | `./data` | Cache em disco |
+| `MAX_SSE` | 5000 | Conexões ao vivo simultâneas (acima disso, a página consulta a cada 30 s) |
 
 ## O simulador ao vivo
 
@@ -77,6 +78,7 @@ Tudo é calculado em **votos válidos nacionais**.
    - definir uma fração por região. O país continua batendo com o número escolhido, e as diferenças entre regiões são mantidas.
 4. **Ponto de virada:** a fração dos votos que faltam de que quem está atrás precisa para empatar. Se passar de 100%, a eleição está matematicamente definida.
 5. **Ajustes extras:** comparecimento no que falta (70% a 130%) e "somar ou tirar votos" (tirados do adversário ou novos votos).
+   Com a apuração em andamento ou encerrada, "Simular o 2º turno inteiro" deixa os votos apurados de fora e refaz tudo a partir do 1º turno.
 6. **Chance:** 2.000 variações sorteiam um erro nacional (±2 pp) e um erro por região (±1,5 pp) sobre o que falta. Com tudo apurado, não há incerteza.
 
 O resultado é recalculado a cada movimento e a cada nova atualização do TSE.
@@ -164,6 +166,14 @@ Segue a documentação técnica oficial ([Informações técnicas sobre a divulg
 As cidades do exterior só são varridas quando o total do exterior muda, no máximo uma vez por minuto. As fotos só são pedidas para candidatos já carregados.
 
 **Cidades do exterior no mapa:** o arquivo do TSE traz o nome da cidade, não o país nem as coordenadas. O país e a posição vêm de um cadastro próprio com 197 cidades (`scripts/cidades-exterior.mjs`). Uma cidade que não estiver nele aparece em "Outros locais" na lista, sem ponto no mapa. Para incluir, edite o cadastro e rode `node scripts/gerar-mundo.mjs public/js/mundo.js`. Esse script precisa de `world-atlas`, `topojson-client` e `d3-geo`, que só servem para gerar o arquivo.
+
+## Segurança e desempenho
+
+- **Cabeçalhos:** Content-Security-Policy só com scripts do próprio site (nada inline), `nosniff`, proteção contra o site ser embutido em outro (`frame-ancestors 'self'`), Referrer-Policy e Permissions-Policy. HSTS quando o proxy informa HTTPS.
+- **Conteúdo de fora:** tudo que vem do TSE e dos feeds passa por escape antes de virar HTML; links de notícia só com `http(s)`; feed acima de 5 MB é recusado; o proxy de fotos só serve candidatos já carregados e só JPEG, PNG, WebP ou GIF.
+- **Arquivos:** os estáticos saem só de `public/` e `src/shared/`, sem como escapar da pasta.
+- **Carga:** cada resposta é comprimida uma vez (Brotli ou gzip) e reaproveitada enquanto não muda; ETag devolve 304 sem corpo. Num teste local, com 200 clientes simultâneos na apuração de presidente, o servidor foi de cerca de 1.000 para 15.000 respostas por segundo. Fotos iguais pedidas ao mesmo tempo viram uma só requisição ao TSE.
+- **Fica com a hospedagem:** HTTPS, limite de requisições por IP e CDN na frente de `/api/*`.
 
 ## Estrutura
 

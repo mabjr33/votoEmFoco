@@ -83,8 +83,8 @@ export class TseClient {
   async getBinary(p) {
     const f = this.cacheFile(p) + '.bin';
     try { const buf = await readFile(f); const meta = JSON.parse(await readFile(f + '.meta', 'utf8')); return { status: 'cached', body: buf, type: meta.type }; } catch {}
-    const nf = this.notFound.get(p);
-    if ((nf && Date.now() - nf < 6 * 3600_000) || this.isPaused()) return { status: 'not-found' };
+    const nf = this.notFound.get(p), falha = this.falhaFoto?.get(p);
+    if ((nf && Date.now() - nf < 6 * 3600_000) || (falha && Date.now() - falha < 60_000) || this.isPaused()) return { status: 'not-found' };
     await this.takeToken();
     this.stats.requests++;
     const ctrl = new AbortController();
@@ -99,7 +99,7 @@ export class TseClient {
       await writeFile(f, body); await writeFile(f + '.meta', JSON.stringify({ type }));
       this.stats.ok++;
       return { status: 'ok', body, type };
-    } catch { this.stats.errors++; return { status: 'error' }; }
+    } catch { this.stats.errors++; (this.falhaFoto ||= new Map()).set(p, Date.now()); return { status: 'error' }; }
     finally { clearTimeout(timer); this.inFlight -= 1; }
   }
 

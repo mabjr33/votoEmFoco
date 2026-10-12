@@ -123,3 +123,10 @@ test('coletor com feeds fictícios: filtra, deduplica, guarda e avisa', async ()
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('feed acima do limite de tamanho é recusado', async () => {
+  const { lerLimitado } = await import('../src/noticias/coletor.js');
+  assert.equal((await lerLimitado(new Response(new Uint8Array(100)), 1000)).length, 100);
+  await assert.rejects(lerLimitado(new Response(new Uint8Array(2000)), 1000), /grande demais/);
+  await assert.rejects(lerLimitado(new Response(new ReadableStream({ start(c) { c.enqueue(new Uint8Array(600)); c.enqueue(new Uint8Array(600)); c.close(); } })), 1000), /grande demais/);
+});

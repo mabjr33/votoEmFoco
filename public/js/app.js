@@ -4,7 +4,6 @@ import { REGIOES, pontoDePartida, cenarioFinal } from '/shared/aovivo.js';
 import { $, $$, fmtInt, fmtPct, fmtPp, esc, clamp, curto, parseVotos, redondo, titulo, normalizar, avatar } from './util.js';
 import { corPartido, textoSobre } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
-import { desenharMundo, localizar } from './mapa-mundo.js';
 import { NOME_SITE } from './marca.js';
 import { renderPrevisoes, fotosFinalistas } from './previsoes.js';
 import { renderNoticias, contarNovas } from './noticias.js';
@@ -15,6 +14,8 @@ UF_NOME.zz = 'Exterior';
 const UFS = MAPA.locations.map((l) => l.id).sort((a, b) => UF_NOME[a].localeCompare(UF_NOME[b], 'pt'));
 const ufNome = (cd) => UF_NOME[cd] || String(cd).toUpperCase();
 const CA = 'var(--a)', CB = 'var(--b)';
+// Mapa-múndi (o maior arquivo do site): só é baixado quando alguém abre a aba Exterior
+let MUNDO = null;
 
 // ---------- estado ----------
 const S = {
@@ -24,7 +25,8 @@ const S = {
 };
 const ler = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-async function getJSON(url) { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error(`${url}: ${r.status}`); return r.json(); }
+// cache 'no-cache': o navegador revalida e recebe 304 quando nada mudou
+async function getJSON(url) { const r = await fetch(url, { cache: 'no-cache' }); if (!r.ok) throw new Error(`${url}: ${r.status}`); return r.json(); }
 
 // ---------- dados ----------
 async function carregarRace(id) { const p = await getJSON(`/api/race/${id}`); if (id === 'pres') S.pres = p; else S.gov[p.scope] = p; }
@@ -52,7 +54,11 @@ function premissasIniciais(r) {
   if (r.cargo !== 1) p.incerteza.sdNacional = 3;
   return p;
 }
-const optsPadrao = () => ({ modo: 'nacional', shareNacional: null, shareRegiao: {}, comparecimento: 1, ajustes: [] });
+const optsPadrao = () => ({ modo: 'nacional', shareNacional: null, shareRegiao: {}, comparecimento: 1, ajustes: [], semApuracao: false });
+/** Apuração terminada: não sobra voto para dividir, então o simulador refaz o 2º turno inteiro. */
+const encerrada = (r) => temVotos(r) && r.live.summary.secoes.pst >= 100;
+/** Votos apurados entram no simulador durante a contagem, a menos que a pessoa peça para simular o 2º turno inteiro. */
+const usaApuracao = (r) => temVotos(r) && !encerrada(r) && !opts(r).semApuracao;
 const base = (r) => (S.base[r.id] ||= ler(`base:${r.id}`, null) || premissasIniciais(r));
 const opts = (r) => (S.opts[r.id] ||= ler(`opts:${r.id}`, null) || optsPadrao());
 const salvarSim = (r) => { gravar(`base:${r.id}`, S.base[r.id]); gravar(`opts:${r.id}`, S.opts[r.id]); };
@@ -62,8 +68,9 @@ function calcular(r) {
   const f = fins(r).map((x) => x.n);
   const p = base(r);
   const sim = simulate(r.baseline.units, f, p);
-  const proj = temVotos(r) ? liveProjection(liveUnits(r), sim, f, { incerteza: p.incerteza }) : null;
-  const pp = pontoDePartida({ live: temVotos(r) ? liveUnits(r) : {}, sim, proj }, f);
+  const vivo = usaApuracao(r);
+  const proj = vivo ? liveProjection(liveUnits(r), sim, f, { incerteza: p.incerteza }) : null;
+  const pp = pontoDePartida({ live: vivo ? liveUnits(r) : {}, sim, proj }, f);
   const inc = { ...p.incerteza, seed: 11 };
   return { sim, proj, pp, final: cenarioFinal(pp, { ...opts(r), incerteza: inc }), esperado: cenarioFinal(pp, { ...optsPadrao(), incerteza: inc }) };
 }
@@ -147,7 +154,11 @@ function render() {
   $('#placar').classList.toggle('simulado', !!S.status?.modoTeste && ((S.turno === 2 && ['presidente', 'exterior'].includes(a)) || a === 'governadores'));
   if (a === 'governadores') return renderGovernadores();
   if (a === 'senado') return renderSenado();
-  if (a === 'exterior') return renderExterior();
+  if (a === 'exterior') {
+    if (MUNDO) return renderExterior();
+    $('#placar').innerHTML = '<p class="nota">Carregando o mapa-múndi…</p>';
+    return import('./mapa-mundo.js').then((m) => { MUNDO = m; if (S.rota.aba === 'exterior') render(); }, console.error);
+  }
   return renderPresidente();
 }
 
@@ -401,12 +412,12 @@ function renderExterior() {
   prepararMapa('mundo');
   const cidades = (S.exterior?.cidades || []).map((x) => {
     const d = x[t], ok = d && d.a + d.b > 0, pA = ok ? (d.a / (d.a + d.b)) * 100 : null;
-    return { cd: x.cd, nome: x.nome, eleitores: x.t1?.te || d?.te || 0, cor: !ok ? 'var(--tinta-3)' : pA >= 50 ? 'var(--a)' : 'var(--b)', pA, d, loc: localizar(x.nome),
+    return { cd: x.cd, nome: x.nome, eleitores: x.t1?.te || d?.te || 0, cor: !ok ? 'var(--tinta-3)' : pA >= 50 ? 'var(--a)' : 'var(--b)', pA, d, loc: MUNDO.localizar(x.nome),
       dica: `<b>${esc(titulo(x.nome))}</b>${ok ? `<br>${esc(A.nmu)} ${fmtPct(pA)}%<br>${esc(B.nmu)} ${fmtPct(100 - pA)}%` : '<br>Sem votos apurados'}<br>${fmtInt(x.t1?.te || d?.te)} eleitores` };
   });
   const estados = {};
   for (const cd of UFS) { const d = ufPres(cd, c); if (d && !d.vazio) estados[cd] = tom(d.cor, d.margem, true); }
-  desenharMundo($('#mapa'), cidades, estados);
+  MUNDO.desenharMundo($('#mapa'), cidades, estados);
   $('#mapa-pe').innerHTML = `<div class="legenda">${quad(CA)}${esc(A.nmu)} à frente ${quad(CB)}${esc(B.nmu)} à frente</div><span>Círculos proporcionais ao eleitorado da cidade.</span><a class="chip" href="#presidente">Voltar ao Brasil</a>`;
   const paises = {};
   for (const x of cidades) {
@@ -534,7 +545,8 @@ function campo(id, rotulo, min, max, step, valor, un = '%', ajuda = '') {
 function renderSimulador() {
   const r = raceSim(), c = calcular(r);
   if (!c) { $('#controles').innerHTML = '<p class="nota">O 1º turno ainda está sendo carregado.</p>'; return; }
-  if (S.simDesenhado !== r.id) { desenharControles(r, c); S.simDesenhado = r.id; }
+  const chave = `${r.id}:${encerrada(r)}`;
+  if (S.simDesenhado !== chave) { desenharControles(r, c); S.simDesenhado = chave; }
   atualizarSim(r, c);
 }
 
@@ -549,6 +561,8 @@ function desenharControles(r, c) {
     <div class="cab-sim"><h1>Quem será eleito?</h1><select class="entrada" id="sim-race" aria-label="Disputa">${opcoes.map(([v, t]) => `<option value="${v}" ${v === r.id ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
     <p class="intro">Em votos válidos ${r.cargo === 1 ? 'do país inteiro' : `de ${esc(ufNome(r.scope))}`}. O que já foi apurado vem do TSE. O que falta, você decide como se divide, e o resultado é refeito a cada nova totalização.</p>
     <div class="agora" id="sim-agora"></div>
+    ${encerrada(r) ? '<p class="aviso-sim">A apuração terminou: o resultado oficial está na aba <a href="#presidente">Resultado</a>. Aqui você simula o 2º turno inteiro a partir do 1º turno.</p>'
+      : temVotos(r) ? `<label class="interruptor"><input type="checkbox" id="sim-zero" ${o.semApuracao ? 'checked' : ''}> Simular o 2º turno inteiro, sem os votos já apurados</label>` : ''}
 
     <details class="secao" name="sim" open>
       <summary><h2>Os votos que faltam</h2></summary>
@@ -560,7 +574,7 @@ function desenharControles(r, c) {
         <div class="virada" id="sim-virada"></div>
         <div class="atalhos">
           <button type="button" data-atalho="esperado">Estimativa</button>
-          ${temVotos(r) ? '<button type="button" data-atalho="apurado">Como o já apurado</button>' : ''}
+          ${usaApuracao(r) ? '<button type="button" data-atalho="apurado">Como o já apurado</button>' : ''}
           <button type="button" data-atalho="primeiro">Como no 1º turno</button>
           <button type="button" data-atalho="meio">Meio a meio</button>
           <button type="button" data-atalho="virada">No ponto de empate</button>
@@ -611,15 +625,17 @@ function renderAjustes(r) {
 
 function atualizarSim(r, c) {
   const [A, B] = fins(r);
-  const f = c.final, o = opts(r), ap = f.apurado, vivo = temVotos(r);
+  const f = c.final, o = opts(r), ap = f.apurado, vivo = usaApuracao(r);
   $('#sim-agora').innerHTML = `
-    <div><div class="r">${vivo ? 'Já apurado' : 'Apurado'}</div><div class="n">${vivo ? curto(ap.validos) : '0'}</div><div class="s">${vivo ? `votos válidos, ${fmtPct(r.live.summary.secoes.pst, 1)}% das seções` : 'a contagem começa às 17h'}</div></div>
+    <div><div class="r">${vivo ? 'Já apurado' : 'Apurado'}</div><div class="n">${vivo ? curto(ap.validos) : '0'}</div><div class="s">${vivo ? `votos válidos, ${fmtPct(r.live.summary.secoes.pst, 1)}% das seções` : encerrada(r) ? 'apuração encerrada, fora da simulação' : o.semApuracao ? 'apuração deixada de fora' : 'a contagem começa às 17h'}</div></div>
     <div><div class="r">${esc(A.nmu)}</div><div class="n" style="color:var(--a)">${vivo ? curto(ap.A) : '–'}</div><div class="s">${vivo ? `${fmtPct((ap.A / (ap.validos || 1)) * 100)}% do apurado` : 'sem votos ainda'}</div></div>
     <div><div class="r">Faltam, estimados</div><div class="n">${curto(f.faltam)}</div><div class="s">votos válidos</div></div>`;
   const s = f.faltam ? f.shareUsado : f.esperado;
   const inp = $('#sim-share');
   if (document.activeElement !== inp) inp.value = (s * 100).toFixed(1);
-  inp.disabled = o.modo === 'regional';
+  inp.disabled = o.modo === 'regional' || !f.faltam;
+  for (const b of $$('[data-atalho]')) b.disabled = !f.faltam;
+  const vA = $('#sim-votosA'); if (vA) vA.disabled = !f.faltam;
   $('#sim-trilho').style.setProperty('--pos', `${(s * 100).toFixed(1)}%`);
   $('#sim-pa').textContent = `${fmtPct(s * 100)}%`;
   $('#sim-pb').textContent = `${fmtPct((1 - s) * 100)}%`;
@@ -629,8 +645,8 @@ function atualizarSim(r, c) {
   marcar($('#mk-esp'), f.esperado);
   marcar($('#mk-vir'), f.viradaA);
   let txt;
-  if (!f.faltam) txt = 'Não há mais votos a apurar. O resultado ao lado é o final.';
-  else if (!vivo) txt = `Antes da apuração, vence quem tiver mais da metade dos votos válidos. O empate fica em <b>${fmtPct(f.viradaA * 100)}%</b> para ${esc(A.nmu)}.`;
+  if (!f.faltam) txt = 'Não há votos a dividir neste cenário.';
+  else if (!vivo) txt = `${encerrada(r) || o.semApuracao ? 'No 2º turno inteiro simulado' : 'Antes da apuração'}, vence quem tiver mais da metade dos votos válidos. O empate fica em <b>${fmtPct(f.viradaA * 100)}%</b> para ${esc(A.nmu)}.`;
   else {
     const atras = ap.A >= ap.B ? B : A, precisa = ap.A >= ap.B ? f.viradaB : f.viradaA, recebe = ap.A >= ap.B ? 1 - f.esperado : f.esperado;
     txt = precisa > 1 ? `Nem com todos os votos que faltam <b>${esc(atras.nmu)}</b> alcança. O resultado está matematicamente definido.`
@@ -648,11 +664,12 @@ function atualizarSim(r, c) {
   } else if (reg && !reg.hidden) {
     for (const [k, g] of Object.entries(f.regioes)) { const v = reg.querySelector(`input[data-reg="${k}"]`)?.nextElementSibling; if (v) v.innerHTML = `<b>${fmtPct(clamp(o.shareRegiao[k] ?? g.share) * 100, 0)}%</b> de ${curto(g.rem)}`; }
   }
-  const venc = f.A >= f.B ? A : B, i = f.incerteza;
+  // Empate: diferença de menos de 1 voto (evita declarar vencedor por arredondamento)
+  const empate = Math.abs(f.margem) < 1, venc = f.A >= f.B ? A : B, i = f.incerteza;
   const dEsp = f.pA - c.esperado.pA;
-  $('#sim-fixo').innerHTML = `<span style="color:var(--a)">${esc(A.nmu)} ${fmtPct(f.pA)}%</span><span style="color:var(--b)">${esc(B.nmu)} ${fmtPct(f.pB)}%</span><b>${esc(venc.nmu)} é eleito</b>`;
+  $('#sim-fixo').innerHTML = `<span style="color:var(--a)">${esc(A.nmu)} ${fmtPct(f.pA)}%</span><span style="color:var(--b)">${esc(B.nmu)} ${fmtPct(f.pB)}%</span><b>${empate ? 'Empate' : `${esc(venc.nmu)} é eleito`}</b>`;
   $('#sim-resumo').innerHTML = `<p class="rot">${r.cargo === 1 ? 'Presidente' : `Governador, ${esc(ufNome(r.scope))}`}, no seu cenário</p>
-    <p class="veredito">${esc(venc.nmu)} é eleito com ${fmtPct(Math.max(f.pA, f.pB))}% dos votos válidos</p>
+    <p class="veredito">${empate ? 'Empate: cada um fica com 50% dos votos válidos' : `${esc(venc.nmu)} é eleito com ${fmtPct(Math.max(f.pA, f.pB))}% dos votos válidos`}</p>
     ${linhaCand(A, CA, f.pA, Math.round(f.A))}${linhaCand(B, CB, f.pB, Math.round(f.B))}${barra(f.pA, f.pB, CA, CB, { pequena: true })}
     <div class="bloco"><dl class="dados"><dt>Diferença</dt><dd>${curto(Math.abs(f.margem))} de votos</dd><dt>Votos válidos no total</dt><dd>${fmtInt(f.validos)}</dd>
       <dt>Em relação à estimativa</dt><dd>${Math.abs(dEsp) < 0.005 ? 'igual' : `${esc(A.nmu)} ${fmtPp(dEsp, 2)} pp`}</dd></dl></div>
@@ -721,6 +738,11 @@ function ligar() {
     const t = e.target;
     if (t.id === 'sel-uf' && t.value) return ir(`${t.dataset.aba}-${t.value}`);
     if (t.id === 'sim-race') return ir(`simulador-${t.value}`);
+    if (t.id === 'sim-zero') {
+      const r = raceSim(), o = opts(r);
+      Object.assign(o, { semApuracao: t.checked, modo: 'nacional', shareNacional: null, shareRegiao: {} });
+      salvarSim(r); S.simDesenhado = null; return render();
+    }
     if (t.id === 'sim-regional') {
       const r = raceSim(), o = opts(r);
       o.modo = t.checked ? 'regional' : 'nacional';
@@ -789,11 +811,20 @@ function conectar() {
       } catch (err) { console.error(err); }
     }, 500);
   });
-  es.onerror = () => { $('#fonte').textContent = 'Conexão com o servidor perdida. Tentando de novo…'; };
+  es.onerror = () => {
+    $('#fonte').textContent = 'Conexão com o servidor perdida. Tentando de novo…';
+    // Servidor recusou a conexão ao vivo (ex.: lotado): consulta de tempos em tempos e tenta voltar ao vivo depois
+    if (es.readyState === EventSource.CLOSED) {
+      const plano = setInterval(async () => { await carregarTudo().catch(() => {}); render(); }, 30_000);
+      setTimeout(() => { clearInterval(plano); conectar(); }, 5 * 60_000);
+    }
+  };
 }
 
 async function iniciar() {
   ligar();
+  // Foto que não carrega some e deixa as iniciais à mostra (sem onerror inline, por causa da CSP)
+  document.addEventListener('error', (e) => { if (e.target?.matches?.('img[src^="/api/foto/"], image')) e.target.remove(); }, true);
   await carregarTudo().catch(console.error);
   render();
   conectar();

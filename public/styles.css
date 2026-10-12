@@ -159,7 +159,8 @@ select.entrada { appearance: none; background: var(--sup) url("data:image/svg+xm
 
 .avatar { position: relative; width: var(--tam); height: var(--tam); flex: none; border-radius: 50%; overflow: hidden; background: var(--cor); display: inline-grid; place-items: center; }
 .avatar span { font: 600 calc(var(--tam) * .36)/1 var(--fonte); color: #fff; }
-.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Fotos do TSE são 3x4 até o peito: recorte pelo topo e leve aproximação no rosto */
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; transform: scale(1.08); transform-origin: 50% 30%; }
 
 .lista-estados { list-style: none; padding: 0; margin: 0; }
 .lista-estados li a { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--linha); text-decoration: none; }
@@ -244,6 +245,8 @@ details.secao[open] > summary::after { content: "−"; }
 .reg-linha .v { text-align: right; color: var(--tinta-2); font-size: 13px; }
 .reg-linha .v b { color: var(--tinta); font-weight: 600; }
 .interruptor { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 15px; margin-top: var(--e3); }
+.aviso-sim { margin-top: var(--e3); padding: 12px var(--e2); border-radius: 10px; background: var(--aviso-bg); color: var(--aviso-tinta); font-size: 15px; }
+.aviso-sim a { color: inherit; font-weight: 600; }
 .interruptor input { width: 18px; height: 18px; accent-color: var(--tinta); }
 .campo { margin-bottom: var(--e3); }
 .campo-topo { display: flex; justify-content: space-between; align-items: baseline; gap: var(--e2); margin-bottom: 6px; font-size: 15px; }

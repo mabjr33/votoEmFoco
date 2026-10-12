@@ -4,7 +4,8 @@
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { gzipSync } from 'node:zlib';
+import { gzipSync, brotliCompressSync, constants as zc } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { loadConfig, ROOT } from './config.js';
 import { TseClient } from './tse/client.js';
@@ -17,10 +18,57 @@ const MIME = {
   '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.png': 'image/png',
 };
 const STATIC_ROOTS = { '/shared/': path.join(ROOT, 'src', 'shared'), '/': path.join(ROOT, 'public') };
+const COMPRIMIVEL = /^(text\/|application\/json|image\/svg)/;
+const FOTO_TIPOS = /^image\/(jpeg|png|webp|gif)$/;
+
+// Cabeçalhos de segurança em todas as respostas. A CSP só permite scripts do próprio site
+// (nada inline): um texto malicioso vindo de um feed ou de um arquivo não consegue rodar código.
+const SEGURANCA = {
+  'Content-Security-Policy': [
+    "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data:", "connect-src 'self'",
+    "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'self'",
+  ].join('; '),
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+};
+
+/**
+ * Corpo pronto para envio: ETag pelo conteúdo e versões comprimidas feitas uma vez só, sob demanda.
+ * Com muitos visitantes, o mesmo JSON deixa de ser comprimido a cada requisição.
+ */
+function corpo(buf, tipo) {
+  const etag = `"${createHash('sha1').update(buf).digest('base64url').slice(0, 20)}"`;
+  return { buf, tipo, etag, comprimivel: buf.length > 1024 && COMPRIMIVEL.test(tipo), br: null, gz: null };
+}
+function enviar(req, res, c, cacheControl) {
+  const headers = { 'Content-Type': c.tipo, 'Cache-Control': cacheControl, ETag: c.etag };
+  if (c.comprimivel) headers.Vary = 'Accept-Encoding';
+  if (req.headers['if-none-match'] === c.etag) { res.writeHead(304, headers); return res.end(); }
+  const ae = req.headers['accept-encoding'] || '';
+  let body = c.buf;
+  if (c.comprimivel && /\bbr\b/.test(ae)) {
+    body = c.br ||= brotliCompressSync(c.buf, { params: { [zc.BROTLI_PARAM_QUALITY]: 6, [zc.BROTLI_PARAM_SIZE_HINT]: c.buf.length } });
+    headers['Content-Encoding'] = 'br';
+  } else if (c.comprimivel && /\bgzip\b/.test(ae)) {
+    body = c.gz ||= gzipSync(c.buf);
+    headers['Content-Encoding'] = 'gzip';
+  }
+  headers['Content-Length'] = body.length;
+  res.writeHead(200, headers);
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
 
 export function createApp(cfg, collector, noticias = null) {
   const sseClients = new Set();
-  const payloadCache = new Map(); // raceId -> { version, gz, json }
+  // Cada conexão ao vivo segura um socket aberto: com teto, uma enxurrada de conexões não derruba o servidor
+  const maxSse = Number(cfg.maxSse || process.env.MAX_SSE || 5000);
+  const payloadCache = new Map(); // raceId -> { version, ready, json }
+  const jsonCache = new Map(); // rota -> corpo do último JSON enviado (reaproveitado enquanto não muda)
+  const staticCache = new Map(); // arquivo -> { mtimeMs, size, corpo }
 
   collector.on('update', (ev) => {
     const msg = `event: update\ndata: ${JSON.stringify({ ...ev, races: collector.raceList() })}\n\n`;
@@ -36,28 +84,30 @@ export function createApp(cfg, collector, noticias = null) {
 
   function sendJson(req, res, obj, { maxAge = 5 } = {}) {
     const json = typeof obj === 'string' ? obj : JSON.stringify(obj);
-    const headers = { 'Content-Type': MIME['.json'], 'Cache-Control': `public, max-age=${maxAge}` };
-    if (/\bgzip\b/.test(req.headers['accept-encoding'] || '') && json.length > 1024) {
-      res.writeHead(200, { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
-      res.end(gzipSync(json));
-    } else {
-      res.writeHead(200, headers);
-      res.end(json);
-    }
+    const rota = req.url.split('?')[0];
+    let c = jsonCache.get(rota);
+    if (!c || c.json !== json) { c = { ...corpo(Buffer.from(json), MIME['.json']), json }; jsonCache.set(rota, c); }
+    enviar(req, res, c, `public, max-age=${maxAge}`);
   }
 
   async function serveStatic(req, res, urlPath) {
     for (const [prefix, dir] of Object.entries(STATIC_ROOTS)) {
       if (!urlPath.startsWith(prefix)) continue;
-      let rel = decodeURIComponent(urlPath.slice(prefix.length)) || 'index.html';
+      let rel;
+      try { rel = decodeURIComponent(urlPath.slice(prefix.length)) || 'index.html'; } catch { break; }
       const file = path.normalize(path.join(dir, rel));
-      if (!file.startsWith(dir)) break;
+      // dir + separador: impede escapar para uma pasta vizinha com o mesmo começo de nome (ex.: public-x)
+      if (!file.startsWith(dir + path.sep) || file.includes('\0')) break;
       try {
         const st = await stat(file);
         if (!st.isFile()) continue;
-        const body = await readFile(file);
-        res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
-        return res.end(body);
+        let e = staticCache.get(file);
+        if (!e || e.mtimeMs !== st.mtimeMs || e.size !== st.size) {
+          e = { mtimeMs: st.mtimeMs, size: st.size, corpo: corpo(await readFile(file), MIME[path.extname(file)] || 'application/octet-stream') };
+          staticCache.set(file, e);
+        }
+        // no-cache: o navegador sempre confere, mas recebe 304 (sem corpo) se o arquivo não mudou
+        return enviar(req, res, e.corpo, 'no-cache');
       } catch { /* tenta próximo */ }
     }
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -66,9 +116,12 @@ export function createApp(cfg, collector, noticias = null) {
 
   return http.createServer(async (req, res) => {
     try {
+      for (const [k, v] of Object.entries(SEGURANCA)) res.setHeader(k, v);
+      // HSTS só faz sentido atrás de HTTPS (o proxy da hospedagem informa em X-Forwarded-Proto)
+      if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
       const url = new URL(req.url, 'http://x');
       const p = url.pathname;
-      if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+      if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); return res.end(); }
 
       if (p === '/api/status') return sendJson(req, res, collector.status(), { maxAge: 2 });
       if (p === '/api/races') return sendJson(req, res, collector.raceList(), { maxAge: 2 });
@@ -84,9 +137,10 @@ export function createApp(cfg, collector, noticias = null) {
       const fm = p.match(/^\/api\/foto\/(\d{6,16})$/);
       if (fm) {
         const r = await collector.foto(fm[1]);
-        if (!r) { res.writeHead(404, { 'Cache-Control': 'public, max-age=600' }); return res.end(); }
-        res.writeHead(200, { 'Content-Type': r.type, 'Cache-Control': 'public, max-age=86400' });
-        return res.end(r.body);
+        // Só tipos de imagem comuns: um SVG servido daqui poderia carregar script
+        if (!r || !FOTO_TIPOS.test(r.type)) { res.writeHead(404, { 'Cache-Control': 'public, max-age=600' }); return res.end(); }
+        res.writeHead(200, { 'Content-Type': r.type, 'Cache-Control': 'public, max-age=86400', 'Content-Length': r.body.length });
+        return res.end(req.method === 'HEAD' ? undefined : r.body);
       }
       const m = p.match(/^\/api\/race\/([a-z0-9-]+)$/);
       if (m) {
@@ -100,6 +154,7 @@ export function createApp(cfg, collector, noticias = null) {
         return sendJson(req, res, c.json, { maxAge: 2 });
       }
       if (p === '/api/stream') {
+        if (sseClients.size >= maxSse) { res.writeHead(503, { 'Retry-After': '30', 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Muitas conexões'); }
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write(`retry: 5000\nevent: hello\ndata: ${JSON.stringify({ races: collector.raceList() })}\n\n`);
         sseClients.add(res);

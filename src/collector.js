@@ -188,7 +188,11 @@ export class Collector extends EventEmitter {
     const tpl = this.discovery.dirFt || '<base>/<ambiente>/<ciclo>/<cd_eleicao>/fotos/<uf>';
     const dir = tpl.replace('<base>', '').replace('<ambiente>', this.cfg.ambiente).replace('<ciclo>', this.cfg.ciclo)
       .replace('<cd_eleicao>', String(Number(info.ele))).replace('<uf>', info.uf);
-    const r = await this.client.getBinary(`${dir}/${sq}.jpeg`);
+    // Vários visitantes pedindo a mesma foto ao mesmo tempo geram uma só requisição ao TSE
+    const p = `${dir}/${sq}.jpeg`;
+    this.fotosEmCurso ||= new Map();
+    if (!this.fotosEmCurso.has(p)) this.fotosEmCurso.set(p, this.client.getBinary(p).finally(() => this.fotosEmCurso.delete(p)));
+    const r = await this.fotosEmCurso.get(p);
     return r.body ? r : null;
   }
 

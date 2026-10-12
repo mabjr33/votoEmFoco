@@ -8,6 +8,25 @@ import { lerFeed, decodificarCorpo } from './rss.js';
 import { classificar, prepararContexto, normalizar } from './classificar.js';
 
 const AGENTE = 'Mozilla/5.0 (compatible; ApuracaoEleicoes/1.0; leitor de RSS)';
+// Um feed normal tem dezenas de KB; acima disso, algo está errado (ou é proposital) e não vale a memória
+const MAX_FEED = 5 * 1024 * 1024;
+
+/** Lê o corpo até `max` bytes e desiste acima disso, sem guardar tudo na memória antes. */
+export async function lerLimitado(r, max) {
+  if (Number(r.headers.get('content-length')) > max) throw new Error('feed grande demais');
+  if (!r.body?.getReader) { const b = new Uint8Array(await r.arrayBuffer()); if (b.length > max) throw new Error('feed grande demais'); return b; }
+  const leitor = r.body.getReader();
+  const partes = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    total += value.length;
+    if (total > max) { await leitor.cancel().catch(() => {}); throw new Error('feed grande demais'); }
+    partes.push(value);
+  }
+  return Buffer.concat(partes);
+}
 
 /** Link sem parâmetros de rastreio, para reconhecer a mesma matéria. */
 export function linkCanonico(u) {
@@ -66,7 +85,7 @@ export class Noticias extends EventEmitter {
       const r = await this.fetch(f.url, { headers, signal: ctrl.signal, redirect: 'follow' });
       if (r.status === 304) { f.ok = true; f.erro = null; f.lidoEm = Date.now(); return []; }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const xml = decodificarCorpo(await r.arrayBuffer(), r.headers.get('content-type') || '');
+      const xml = decodificarCorpo(await lerLimitado(r, MAX_FEED), r.headers.get('content-type') || '');
       const itens = lerFeed(xml);
       if (!itens.length && !/<(rss|feed|rdf)\b/i.test(xml)) throw new Error('resposta não é um feed');
       f.etag = r.headers.get('etag');

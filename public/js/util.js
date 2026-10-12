@@ -44,6 +44,6 @@ export const iniciais = (nome) => String(nome || '?').replace(/^(escritor|profes
 /** Retrato do candidato: foto do TSE via proxy, com iniciais quando a foto não existir. */
 export function avatar(c, { tam = 40, cor = '#666' } = {}) {
   const ini = esc(iniciais(c?.nmu));
-  const foto = c?.sq ? `<img src="/api/foto/${esc(c.sq)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+  const foto = c?.sq ? `<img src="/api/foto/${esc(c.sq)}" alt="" loading="lazy">` : '';
   return `<span class="avatar" style="--tam:${tam}px;--cor:${cor}" aria-hidden="true"><span>${ini}</span>${foto}</span>`;
 }
