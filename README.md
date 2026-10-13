@@ -197,7 +197,7 @@ As cidades do exterior só são varridas quando o total do exterior muda, no má
 
 1. **Primeiro acesso:** a página pede o **código de instalação** (o valor de `ADMIN_TOKEN`, 16+ caracteres; no Render, em Environment), o usuário e a senha. O código prova que quem cria o acesso administra o servidor; ele não serve para entrar no painel.
 2. **Senha:** 10+ caracteres, sem conter o usuário e sem ser senha comum. Guardada só como hash scrypt com sal (`data/admin-acesso.json`), nunca em texto.
-3. **Guardar no servidor:** depois de criar (ou trocar a senha), o painel mostra a linha `ADMIN_LOGIN=usuario:hash`. Cole-a em Environment no Render: o plano gratuito apaga o disco a cada reinício e, sem ela, seria preciso criar o acesso de novo. A linha não contém a senha.
+3. **Guardar no servidor:** com o [banco de dados](#banco-de-dados-supabase) ligado, o acesso fica nele e não há mais nada a fazer. Sem banco, depois de criar (ou trocar a senha) o painel mostra a linha `ADMIN_LOGIN=usuario:hash`: cole-a em Environment no Render, porque o plano gratuito apaga o disco a cada reinício. A linha não contém a senha.
 4. **Esqueceu a senha:** "Esqueci a senha" com o código de instalação define usuário e senha novos e encerra todas as sessões.
 5. **Sessão:** 12 h, no cabeçalho `Authorization` (sem cookie, então sem CSRF), guardada só na aba do navegador. Dez tentativas erradas bloqueiam o IP por alguns minutos.
 
@@ -207,10 +207,22 @@ Sem `ADMIN_TOKEN` e sem `ADMIN_LOGIN`, o painel não existe (as rotas respondem 
 - **Cadastro de pesquisas do TSE:** quantas pesquisas presidenciais tem e quando foi lido.
 - **Esperando aprovação:** pesquisas do cadastro do TSE com números lidos nas reportagens, mas sem a confirmação de dois veículos (ou com números divergentes). O botão preenche o formulário; você confere na fonte e aprova.
 - **Pesquisas detectadas nas manchetes:** registros nacionais citados em manchetes que ainda não estão no modelo.
-- **No modelo:** automáticas (com os veículos que confirmaram) e aprovadas no painel. Ao aprovar ou remover, a aba Previsões é recalculada para todos na hora. Ficam em `data/pesquisas.json`.
+- **No modelo:** automáticas (com os veículos que confirmaram) e aprovadas no painel. Ao aprovar ou remover, a aba Previsões é recalculada para todos na hora. Ficam no banco de dados (se ligado) e em `data/pesquisas.json`.
+- **Banco de dados:** se está ligado e quando gravou pela última vez.
 
 
 **Aviso de dados parados:** se o TSE não responde há mais de 3 ciclos de consulta (mínimo 90 s), aparece uma faixa no topo e a linha "Ao vivo" troca por "Último dado recebido".
+
+## Banco de dados (Supabase)
+
+Opcional, mas recomendado no Render gratuito (que apaga o disco a cada reinício). Guarda o que não pode se perder: pesquisas do modelo (automáticas e aprovadas), as removidas no painel e o acesso ao painel (só o hash da senha). Resultados e notícias não vão para o banco: vêm sempre do TSE e dos feeds.
+
+1. Crie um projeto em [supabase.com](https://supabase.com) (plano gratuito; região São Paulo).
+2. Em **SQL Editor**, cole e rode o conteúdo de [`supabase/schema.sql`](supabase/schema.sql). Ele cria 3 tabelas com regras (registro BR-12345/2026, percentuais entre 0 e 100, só hash scrypt) e liga o RLS sem nenhuma política: a chave pública do Supabase não lê nem grava nada.
+3. Em **Project Settings > API**, copie a **Project URL** e a chave **service_role**.
+4. No Render, em Environment: `SUPABASE_URL` = a URL e `SUPABASE_SERVICE_KEY` = a chave service_role. A chave fica só no servidor; nunca vai para o navegador nem para o repositório.
+
+Na primeira partida com o banco vazio, o servidor leva para ele o que já tinha (`data/pesquisas.json`, `data/admin-acesso.json` ou `ADMIN_LOGIN`). Depois, o banco é a fonte e o arquivo fica de reserva: se o banco cair, o site continua com o arquivo e o painel mostra o erro; quando ele volta, o servidor junta os dois antes de gravar, sem apagar nada. Sem as duas variáveis, tudo funciona como antes, só com arquivos.
 
 ## Hospedagem
 
@@ -238,6 +250,7 @@ src/tse/                     URLs, cliente HTTP com proteção, leitura do EA20/
 src/noticias/                leitor de RSS, classificador e coletor de notícias
 src/pesquisas-auto/          cadastro de pesquisas do TSE, leitura de reportagens, entrada automática
 src/pesquisas.js             pesquisas do painel e automáticas (conferência entre veículos)
+src/banco.js                 banco de dados opcional (Supabase, pela API REST; tabelas em supabase/)
 src/collector.js             descoberta, 1º turno, 2º turno ao vivo, exterior, eventos, fotos
 src/shared/engine.js         cenário-base, projeção e Monte Carlo
 src/shared/aovivo.js         simulador ao vivo (apurado + o que falta, ponto de virada)
@@ -249,7 +262,7 @@ src/mock/                    TSE de teste: sintético ou 1º turno real baixado,
 src/tse/baixar.js            download do 1º turno real (npm run baixar)
 public/                      interface
 scripts/                     geração do mapa-múndi e cadastro de cidades
-test/                        testes (node --test)
+test/                        testes (node --test; rodam no GitHub a cada push)
 ```
 
 API: `/api/status`, `/api/races`, `/api/race/:id`, `/api/endorsers`, `/api/exterior`, `/api/eventos`, `/api/noticias`, `/api/pesquisas`, `/api/foto/:sqcand`, `/api/stream`.

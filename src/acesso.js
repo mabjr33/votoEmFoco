@@ -52,8 +52,10 @@ export function validarCredenciais(usuario, senha) {
 }
 
 export class Acesso {
-  /** opcoes: { dataDir, loginEnv (ADMIN_LOGIN "usuario:hash"), codigoInstalacao (ADMIN_TOKEN) } */
-  constructor({ dataDir = null, loginEnv = null, codigoInstalacao = null } = {}) {
+  /** opcoes: { dataDir, loginEnv (ADMIN_LOGIN "usuario:hash"), codigoInstalacao (ADMIN_TOKEN), banco (src/banco.js) } */
+  constructor({ dataDir = null, loginEnv = null, codigoInstalacao = null, banco = null, log = console } = {}) {
+    this.banco = banco;
+    this.log = log;
     this.arquivo = dataDir ? path.join(dataDir, 'admin-acesso.json') : null;
     this.codigo = typeof codigoInstalacao === 'string' && codigoInstalacao.length >= 16 ? codigoInstalacao : null;
     this.conta = null; // { usuario, hash }
@@ -63,20 +65,38 @@ export class Acesso {
   }
 
   async carregar() {
-    if (!this.arquivo) return;
-    try {
-      const j = JSON.parse(await readFile(this.arquivo, 'utf8'));
-      // O arquivo é o mais recente (criado ou trocado neste servidor): vale mais que a variável
-      if (USUARIO.test(j.usuario) && String(j.hash).startsWith('scrypt$')) this.conta = { usuario: j.usuario, hash: j.hash, origem: 'arquivo' };
-    } catch { /* ainda não criado */ }
+    let bancoOk = false;
+    if (this.banco) {
+      try {
+        const c = await this.banco.lerAcesso();
+        bancoOk = true;
+        if (c && USUARIO.test(c.usuario) && String(c.hash).startsWith('scrypt$')) { this.conta = { ...c, origem: 'banco' }; return; }
+      } catch (e) { this.log.warn?.(`[admin] banco indisponível, usando arquivo/variável: ${e.message}`); }
+    }
+    if (this.arquivo) {
+      try {
+        const j = JSON.parse(await readFile(this.arquivo, 'utf8'));
+        // O arquivo é o mais recente (criado ou trocado neste servidor): vale mais que a variável
+        if (USUARIO.test(j.usuario) && String(j.hash).startsWith('scrypt$')) this.conta = { usuario: j.usuario, hash: j.hash, origem: 'arquivo' };
+      } catch { /* ainda não criado */ }
+    }
+    // Banco novo e vazio: leva para ele o acesso que já existia (arquivo ou ADMIN_LOGIN)
+    if (bancoOk && this.conta) {
+      try { await this.banco.gravarAcesso(this.conta); this.conta.origem = 'banco'; } catch (e) { this.log.warn?.(`[admin] acesso não gravado no banco: ${e.message}`); }
+    }
   }
 
   async salvar() {
-    if (!this.arquivo || !this.conta) return;
-    await mkdir(path.dirname(this.arquivo), { recursive: true });
-    const tmp = `${this.arquivo}.tmp`;
-    await writeFile(tmp, JSON.stringify({ usuario: this.conta.usuario, hash: this.conta.hash }), { mode: 0o600 });
-    await rename(tmp, this.arquivo);
+    if (!this.conta) return;
+    if (this.arquivo) {
+      await mkdir(path.dirname(this.arquivo), { recursive: true });
+      const tmp = `${this.arquivo}.tmp`;
+      await writeFile(tmp, JSON.stringify({ usuario: this.conta.usuario, hash: this.conta.hash }), { mode: 0o600 });
+      await rename(tmp, this.arquivo);
+    }
+    if (this.banco) {
+      try { await this.banco.gravarAcesso(this.conta); this.conta.origem = 'banco'; } catch (e) { this.log.warn?.(`[admin] acesso não gravado no banco: ${e.message}`); }
+    }
   }
 
   /** O painel existe se há conta ou código para criá-la. */
@@ -97,7 +117,7 @@ export class Acesso {
     this.conta = { usuario: String(usuario).trim().toLowerCase(), hash: await gerarHash(senha), origem: 'arquivo' };
     this.sessoes.clear();
     await this.salvar();
-    return { sessao: this.abrirSessao(this.conta.usuario), linhaVariavel: this.linhaVariavel() };
+    return { sessao: this.abrirSessao(this.conta.usuario), linhaVariavel: this.linhaVariavel(), noBanco: this.conta.origem === 'banco' };
   }
 
   async entrar({ usuario, senha }) {
@@ -117,7 +137,7 @@ export class Acesso {
     this.conta = { ...this.conta, hash: await gerarHash(novaSenha), origem: 'arquivo' };
     this.sessoes.clear();
     await this.salvar();
-    return { sessao: this.abrirSessao(this.conta.usuario), linhaVariavel: this.linhaVariavel() };
+    return { sessao: this.abrirSessao(this.conta.usuario), linhaVariavel: this.linhaVariavel(), noBanco: this.conta.origem === 'banco' };
   }
 
   abrirSessao(usuario) {

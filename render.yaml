@@ -19,5 +19,11 @@ services:
       # cole aqui para o acesso sobreviver aos reinícios (o plano gratuito apaga o disco).
       - key: ADMIN_LOGIN
         sync: false
+      # Banco de dados (Supabase, opcional): pesquisas e acesso ao painel sobrevivem aos reinícios.
+      # Supabase > Project Settings > API: "Project URL" e a chave "service_role" (secreta).
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
       # Modo normal: 1º turno real (dos arquivos do TSE que vão junto) e 2º turno ao vivo a partir de 25/10.
       # Para voltar a simular o 2º turno (testes), crie MODO=teste e, se quiser, MOCK_DURATION (segundos).

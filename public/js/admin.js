@@ -67,6 +67,7 @@ async function atualizarSaude() {
       ${cartao('Memória do servidor', `${fmtInt(s.memoriaMb)} MB`)}
       ${cartao('Requisições ao TSE', `${fmtInt(t.requisicoes.requests)} (${fmtInt(t.requisicoes.notFound)} 404, ${fmtInt(t.requisicoes.errors)} erros)`, t.requisicoes.errors > 0 && parado)}
       ${cartao('No ar desde', esc(horaDe(s.noArDesde)))}
+      ${s.banco ? cartao('Banco de dados', s.banco.ok ? (s.banco.ultimoOk ? `ok · ${esc(horaDe(new Date(s.banco.ultimoOk).toISOString()))}` : 'ligado') : `erro: ${esc(s.banco.erro)}`, !s.banco.ok) : cartao('Banco de dados', 'não configurado (arquivos no disco)')}
       ${s.cadastroPesquisas ? cartao('Cadastro de pesquisas do TSE', s.cadastroPesquisas.erro ? `erro: ${esc(s.cadastroPesquisas.erro)}` : `${fmtInt(s.cadastroPesquisas.pesquisas)} presidenciais · lido ${esc(horaDe(s.cadastroPesquisas.atualizadoEm))}`, !!s.cadastroPesquisas.erro) : ''}
     </div>
     <p class="nota">Fonte: ${esc(t.fonte)} · configuração do TSE de ${esc(t.configuracaoEm || '–')} · atualizado ${esc(horaDe(s.agora))}${t.requisicoes.lastError ? ` · último erro: ${esc(t.requisicoes.lastError)}` : ''}</p>
@@ -107,7 +108,8 @@ async function carregar() {
   tela('conteudo');
   $('#aviso-acesso').textContent = '';
   const conta = await api('/api/admin/conta');
-  $('#conta-info').textContent = `Você entrou como "${conta.usuario}". ${conta.origem === 'variavel' ? 'O acesso está guardado na variável ADMIN_LOGIN do servidor.' : 'O acesso está salvo no disco deste servidor; para não perdê-lo num reinício, guarde a variável ADMIN_LOGIN.'}`;
+  $('#conta-info').textContent = `Você entrou como "${conta.usuario}". ${conta.origem === 'banco' ? 'O acesso está guardado no banco de dados.' : conta.origem === 'variavel' ? 'O acesso está guardado na variável ADMIN_LOGIN do servidor.' : 'O acesso está salvo no disco deste servidor; para não perdê-lo num reinício, guarde a variável ADMIN_LOGIN.'}`;
+  $('#ver-env').hidden = conta.origem === 'banco';
   await Promise.all([atualizarSaude(), atualizarPesquisas()]);
 }
 async function iniciar() {
@@ -141,7 +143,7 @@ $('#form-criar').addEventListener('submit', async (e) => {
     const r = await postar('/api/admin/criar', { codigo: f.codigo.value, usuario: f.usuario.value, senha: f.senha.value });
     f.reset();
     guardarSessao(r.sessao);
-    mostrarVariavel(r.linhaVariavel, 'painel');
+    if (r.noBanco) await carregar(); else mostrarVariavel(r.linhaVariavel, 'painel');
   } catch (err) { $('#aviso-acesso').textContent = err.message; }
 });
 
@@ -154,7 +156,7 @@ $('#form-senha').addEventListener('submit', async (e) => {
     const r = await postar('/api/admin/senha', { senhaAtual: f.senhaAtual.value, novaSenha: f.novaSenha.value });
     f.reset();
     guardarSessao(r.sessao);
-    mostrarVariavel(r.linhaVariavel, 'painel');
+    if (r.noBanco) await carregar(); else mostrarVariavel(r.linhaVariavel, 'painel');
   } catch (err) { $('#erro-senha').textContent = err.message; }
 });
 

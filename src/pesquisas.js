@@ -82,9 +82,12 @@ function proposta(cad, fontes) {
 }
 
 export class Pesquisas extends EventEmitter {
-  constructor(dataDir) {
+  /** opcoes.banco: BancoSupabase (src/banco.js). Com banco, ele é a fonte; o arquivo fica de reserva. */
+  constructor(dataDir, { banco = null, log = console } = {}) {
     super();
     this.arquivo = dataDir ? path.join(dataDir, 'pesquisas.json') : null;
+    this.banco = banco;
+    this.log = log;
     this.itens = [];
     this.ignoradas = new Set(); // automáticas removidas no painel: não voltam sozinhas
     this.pendentes = []; // achadas nas reportagens, mas sem confirmação suficiente
@@ -92,20 +95,48 @@ export class Pesquisas extends EventEmitter {
   }
 
   async carregar() {
+    let doBanco = null;
+    if (this.banco) {
+      try {
+        doBanco = await this.banco.lerPesquisas();
+        this.bancoLido = true;
+      } catch (e) { this.log.warn?.(`[pesquisas] banco indisponível, usando o arquivo: ${e.message}`); }
+    }
+    if (doBanco && (doBanco.itens.length || doBanco.ignoradas.length)) {
+      this.itens = doBanco.itens;
+      this.ignoradas = new Set(doBanco.ignoradas);
+      return;
+    }
     if (!this.arquivo) return;
     try {
       const j = JSON.parse(await readFile(this.arquivo, 'utf8'));
       this.itens = Array.isArray(j.itens) ? j.itens : [];
       this.ignoradas = new Set(Array.isArray(j.ignoradas) ? j.ignoradas : []);
     } catch { /* primeiro uso */ }
+    // Banco novo e vazio: leva para ele o que já estava no arquivo
+    if (doBanco && (this.itens.length || this.ignoradas.size)) await this.salvar();
   }
 
   async salvar() {
-    if (!this.arquivo) return;
-    await mkdir(path.dirname(this.arquivo), { recursive: true });
-    const tmp = `${this.arquivo}.tmp`;
-    await writeFile(tmp, JSON.stringify({ itens: this.itens, ignoradas: [...this.ignoradas] }, null, 1));
-    await rename(tmp, this.arquivo);
+    if (this.arquivo) {
+      await mkdir(path.dirname(this.arquivo), { recursive: true });
+      const tmp = `${this.arquivo}.tmp`;
+      await writeFile(tmp, JSON.stringify({ itens: this.itens, ignoradas: [...this.ignoradas] }, null, 1));
+      await rename(tmp, this.arquivo);
+    }
+    if (!this.banco) return;
+    // Banco fora do ar não derruba o painel: fica no arquivo e o erro aparece na saúde do painel
+    try {
+      if (!this.bancoLido) {
+        // A leitura inicial falhou: junta o que já está no banco antes de gravar, para não apagar nada
+        const d = await this.banco.lerPesquisas();
+        const meus = new Set(this.itens.map((p) => p.registro));
+        this.itens.push(...d.itens.filter((p) => !meus.has(p.registro) && !this.ignoradas.has(p.registro)));
+        for (const r of d.ignoradas) this.ignoradas.add(r);
+        this.bancoLido = true;
+      }
+      await this.banco.gravarPesquisas({ itens: this.itens, ignoradas: [...this.ignoradas] });
+    } catch (e) { this.log.warn?.(`[pesquisas] não gravou no banco: ${e.message}`); }
   }
 
   /** Registros que já estão no modelo (fixos, aprovados ou automáticos). */

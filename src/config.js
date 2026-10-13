@@ -24,7 +24,10 @@ export function loadConfig(overrides = {}) {
     // 1º turno baixado do TSE que vai junto com o site: lido do disco, sem consultar o TSE
     dadosLocais: env.DADOS_LOCAIS || path.join(ROOT, 'data', 'tse-1turno'),
     adminToken: env.ADMIN_TOKEN || null, // código de instalação do painel (criar ou redefinir o acesso)
-    adminLogin: env.ADMIN_LOGIN || null, // usuário e hash da senha do painel, gerados pelo próprio painel
+    adminLogin: env.ADMIN_LOGIN || null,
+    // Banco (Supabase): pesquisas e acesso ao painel sobrevivem a reinícios. A chave é secreta (só no servidor).
+    supabaseUrl: env.SUPABASE_URL || null,
+    supabaseChave: env.SUPABASE_SERVICE_KEY || null, // usuário e hash da senha do painel, gerados pelo próprio painel
     publicUrl: env.PUBLIC_URL || null,
     trustProxy: env.TRUST_PROXY === '1',
     ...overrides,
