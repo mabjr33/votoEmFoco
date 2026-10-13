@@ -60,7 +60,9 @@ export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = nu
       conexoesAoVivo: conexoes(),
       tse: {
         fonte: `${st.base}/${st.ambiente}`, pronto: st.ready, ultimaRespostaOk: st.tseOkEm, semRespostaMs: st.tseSemRespostaMs,
-        pausadoAte: st.pausedUntil, ultimaConsulta: st.lastPoll, configuracaoEm: st.discovery?.configEm,
+        pausadoAte: st.pausedUntil,
+        // Antes da apuração o servidor só lê a configuração do TSE (a cada 2 min): o limite acompanha
+        limiteSemRespostaMs: st.apuracaoComecaEm ? 3 * (collector.cfg?.configIntervalMs || 120_000) : 90_000, ultimaConsulta: st.lastPoll, configuracaoEm: st.discovery?.configEm,
         segundoTurnoFederal: st.discovery?.federal2Disponivel, ufsGovernador2T: st.discovery?.estadual2Ufs || [],
         requisicoes: st.http,
       },

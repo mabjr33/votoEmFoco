@@ -1,7 +1,7 @@
 import { defaultParams, simulate, liveProjection, normFlow } from '/shared/engine.js';
 import { suggestedFlow } from '/shared/presets.js';
 import { REGIOES, pontoDePartida, cenarioFinal, situacaoVirada, mesclarHistorico } from '/shared/aovivo.js';
-import { $, $$, fmtInt, fmtPct, fmtChance, fmtPp, esc, clamp, curto, deQtd, parseVotos, redondo, titulo, normalizar, avatar } from './util.js';
+import { $, $$, fmtInt, fmtPct, fmtChance, fmtPp, esc, clamp, curto, deQtd, parseVotos, redondo, titulo, normalizar, avatar, tseParado } from './util.js';
 import { corPartido, textoSobre } from './partidos.js';
 import { desenharBrasil } from './mapa-br.js';
 import { NOME_SITE } from './marca.js';
@@ -182,11 +182,10 @@ function renderTopo() {
   else el.textContent = 'Carregando os dados do TSE…';
 }
 
-/** Dados parados: o TSE não responde há mais de 3 ciclos de consulta (mínimo 90 s). */
+/** Faixa de dados parados (regra em tseParado). */
 function renderAlertaTse() {
   const st = S.status, el = $('#alerta-tse');
-  const limite = Math.max(90_000, 3 * (st?.pollIntervalMs || 15_000));
-  const parado = st?.ready && (st.tseSemRespostaMs === null || st.tseSemRespostaMs > limite);
+  const parado = tseParado(st);
   el.hidden = !parado;
   if (!parado) return false;
   const min = st.tseSemRespostaMs === null ? null : Math.max(1, Math.round(st.tseSemRespostaMs / 60_000));

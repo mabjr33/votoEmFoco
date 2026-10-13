@@ -56,7 +56,7 @@ const cartao = (r, v, ruim = false) => `<div class="cartao ${ruim ? 'ruim' : ''}
 async function atualizarSaude() {
   const s = await api('/api/admin/saude');
   const t = s.tse;
-  const parado = t.semRespostaMs == null || t.semRespostaMs > 90_000;
+  const parado = t.semRespostaMs == null || t.semRespostaMs > (t.limiteSemRespostaMs || 90_000);
   const pausado = t.pausadoAte && Date.parse(t.pausadoAte) > Date.now();
   $('#saude').innerHTML = `<div class="cartoes">
       ${cartao('Última resposta do TSE', `há ${duracao(t.semRespostaMs)}`, parado)}

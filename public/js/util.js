@@ -12,7 +12,16 @@ export function fmtChance(p) {
   if (p < 0.01) return 'menos de 1%';
   return `${Math.round(p * 100).toLocaleString('pt-BR')}%`;
 }
-export const fmtPct = (n, d = 1) => (Number.isFinite(n) ? n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
+/**
+ * Dados parados: o TSE não responde há mais de 3 ciclos de consulta (mínimo 90 s). Só vale com a
+ * apuração em andamento: antes dela o servidor consulta o TSE a cada 2 min e não há número ao vivo.
+ */
+export function tseParado(st) {
+  if (!st?.ready || st.apuracaoComecaEm) return false;
+  const limite = Math.max(90_000, 3 * (st.pollIntervalMs || 15_000));
+  return st.tseSemRespostaMs === null || st.tseSemRespostaMs > limite;
+}
+export const fmtPct =(n, d = 1) => (Number.isFinite(n) ? n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '–');
 export const fmtPp = (n, d = 1) => `${n > 0.0005 ? '+' : n < -0.0005 ? '−' : '±'}${fmtPct(Math.abs(n), d)}`;
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const clamp = (x, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
