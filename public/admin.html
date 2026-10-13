@@ -5,102 +5,124 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
   <title>Painel · Voto em Foco</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/admin.css">
 </head>
 <body class="admin">
-  <main>
-    <h1>Painel</h1>
-    <p class="erro" id="aviso-acesso" role="alert"></p>
+  <header class="adm-topo">
+    <div class="adm-marca"><img src="/favicon.svg" alt="" width="24" height="24"> <b>Voto em Foco</b> <span>painel</span></div>
+    <div class="adm-quem" id="quem" hidden><span id="quem-nome"></span> <button class="link" id="sair" type="button">Sair</button></div>
+  </header>
 
-    <section id="entrar" hidden>
-      <h2>Entrar</h2>
+  <main>
+    <p class="adm-alerta" id="aviso-acesso" role="alert"></p>
+
+    <!-- ---------- acesso ---------- -->
+    <section id="entrar" class="adm-caixa" hidden>
+      <h1>Entrar</h1>
       <form id="form-entrar" class="form-acesso">
-        <label>Usuário<input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
-        <label>Senha<input class="entrada" name="senha" type="password" autocomplete="current-password" required></label>
-        <div><button class="botao" type="submit">Entrar</button> <button class="link" type="button" id="ir-redefinir">Esqueci a senha</button></div>
+        <label>Usuário<input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32" required></label>
+        <label>Senha<input class="entrada" name="senha" type="password" autocomplete="current-password" maxlength="200" required></label>
+        <button class="botao" type="submit">Entrar</button>
+        <button class="link" type="button" id="ir-redefinir">Esqueci a senha</button>
       </form>
     </section>
 
-    <section id="criar" hidden>
-      <h2 id="titulo-criar">Criar acesso</h2>
-      <p class="intro" id="intro-criar">Ainda não há acesso ao painel. Escolha seu usuário e sua senha. Para provar que você administra o servidor, informe o <b>código de instalação</b>: o valor de <code>ADMIN_TOKEN</code> (no Render, em Environment).</p>
+    <section id="criar" class="adm-caixa" hidden>
+      <h1 id="titulo-criar">Criar acesso</h1>
+      <p class="nota" id="intro-criar"></p>
       <form id="form-criar" class="form-acesso">
         <label>Código de instalação<input class="entrada" name="codigo" type="password" autocomplete="off" required></label>
         <label>Usuário<input class="entrada" name="usuario" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="32" pattern="[a-z0-9._\-]{3,32}" title="3 a 32 caracteres: letras minúsculas, números, ponto, hífen ou sublinhado" required></label>
-        <label>Senha<input class="entrada" name="senha" type="password" autocomplete="new-password" minlength="10" required></label>
-        <label>Repita a senha<input class="entrada" name="senha2" type="password" autocomplete="new-password" minlength="10" required></label>
-        <p class="nota">A senha precisa ter pelo menos 10 caracteres, não pode conter o usuário nem ser uma senha comum. Uma frase curta funciona bem.</p>
-        <div><button class="botao" type="submit">Salvar acesso</button> <button class="link" type="button" id="voltar-entrar" hidden>Voltar</button></div>
+        <label>Senha<input class="entrada" name="senha" type="password" autocomplete="new-password" minlength="10" maxlength="200" required></label>
+        <label>Repita a senha<input class="entrada" name="senha2" type="password" autocomplete="new-password" minlength="10" maxlength="200" required></label>
+        <p class="nota">Pelo menos 10 caracteres, sem conter o usuário e sem ser senha comum. Uma frase curta funciona bem.</p>
+        <button class="botao" type="submit">Salvar acesso</button>
+        <button class="link" type="button" id="voltar-entrar" hidden>Voltar</button>
       </form>
     </section>
 
-    <section id="guardar" hidden>
-      <h2>Guarde o acesso no servidor</h2>
-      <p class="intro">Seu acesso foi salvo neste servidor. Hospedagens gratuitas, como o Render, apagam o disco a cada reinício: para não perder o acesso, crie a variável abaixo em <b>Environment</b>. Ela tem seu usuário e uma impressão da senha (hash), não a senha.</p>
+    <section id="guardar" class="adm-caixa" hidden>
+      <h1>Guarde o acesso no servidor</h1>
+      <p class="nota">Sem banco de dados, o Render apaga o acesso a cada reinício. Crie esta variável em <b>Environment</b>: ela tem o usuário e uma impressão da senha (hash), não a senha.</p>
       <pre class="linha-env" id="linha-env"></pre>
-      <p><button class="botao-2" type="button" id="copiar-env">Copiar</button> <button class="botao" type="button" id="continuar">Continuar para o painel</button></p>
+      <p><button class="botao-2" type="button" id="copiar-env">Copiar</button> <button class="botao" type="button" id="continuar">Continuar</button></p>
     </section>
 
+    <!-- ---------- painel ---------- -->
     <div id="conteudo" hidden>
-      <section>
-        <h2>Saúde</h2>
+      <nav class="adm-abas" role="tablist" aria-label="Seções do painel">
+        <button role="tab" type="button" data-aba="geral" aria-selected="true">Visão geral</button>
+        <button role="tab" type="button" data-aba="pesquisas">Pesquisas <span class="adm-badge" id="badge-pesquisas" hidden></span></button>
+        <button role="tab" type="button" data-aba="sistema">Sistema</button>
+        <button role="tab" type="button" data-aba="conta">Conta</button>
+      </nav>
+
+      <section data-painel="geral">
+        <div id="status-geral" class="adm-status" aria-live="polite"></div>
+        <h2>Acessos</h2>
+        <div id="visitas"></div>
+        <div id="aviso-pesquisas"></div>
+      </section>
+
+      <section data-painel="pesquisas" hidden>
+        <h2>Esperando sua aprovação</h2>
+        <p class="nota">Registradas no TSE, com números lidos nas reportagens, mas sem dois veículos confirmando os mesmos números. Confira na fonte antes de aprovar.</p>
+        <div id="pendentes"></div>
+
+        <h2>No modelo</h2>
+        <p class="nota">Além das pesquisas fixas. Uma automática removida não volta sozinha.</p>
+        <div id="aprovadas"></div>
+
+        <details class="adm-dobra" id="dobra-detectadas">
+          <summary>Citadas nas manchetes <span class="adm-badge" id="badge-detectadas" hidden></span></summary>
+          <div id="detectadas"></div>
+        </details>
+
+        <details class="adm-dobra" id="dobra-form">
+          <summary>Adicionar pesquisa à mão</summary>
+          <form id="form-pesquisa" class="grade-form">
+            <label>Registro no TSE<input class="entrada" name="registro" placeholder="BR-12345/2026" required></label>
+            <label>Instituto<input class="entrada" name="instituto" required></label>
+            <label>Campo (datas)<input class="entrada" name="campo" placeholder="14–16/10"></label>
+            <label>Divulgação<input class="entrada" name="divulgacao" placeholder="17/10"></label>
+            <label>Entrevistas<input class="entrada" name="amostra" inputmode="numeric" required></label>
+            <label>Margem de erro (pp)<input class="entrada" name="margem" inputmode="decimal" required></label>
+            <fieldset><legend>Votos totais (%)</legend>
+              <label><span id="rot-a">Candidato A</span><input class="entrada" name="flavio" inputmode="decimal"></label>
+              <label><span id="rot-b">Candidato B</span><input class="entrada" name="lula" inputmode="decimal"></label>
+            </fieldset>
+            <fieldset><legend>Votos válidos (%)</legend>
+              <label><span id="rot-va">Candidato A</span><input class="entrada" name="flavioValido" inputmode="decimal"></label>
+              <label><span id="rot-vb">Candidato B</span><input class="entrada" name="lulaValido" inputmode="decimal"></label>
+            </fieldset>
+            <label class="largo">Link da fonte<input class="entrada" name="fonteUrl" type="url" placeholder="https://" required></label>
+            <label>Nome da fonte<input class="entrada" name="fonteNome" placeholder="ex.: Folha"></label>
+            <div class="largo"><button class="botao" type="submit">Aprovar e publicar</button> <span class="adm-msg" id="erro-pesquisa" role="alert"></span></div>
+          </form>
+        </details>
+      </section>
+
+      <section data-painel="sistema" hidden>
         <div id="saude" aria-live="polite"></div>
       </section>
 
-      <section>
-        <h2>Esperando aprovação</h2>
-        <p class="intro">Pesquisas do cadastro oficial do TSE cujos números foram lidos nas reportagens, mas sem confirmação suficiente para entrar sozinhas (é preciso que dois veículos diferentes publiquem os mesmos números). Confira na fonte e aprove pelo formulário.</p>
-        <div id="pendentes"></div>
-      </section>
-
-      <section>
-        <h2>Pesquisas detectadas nas manchetes</h2>
-        <p class="intro">Manchetes com número de registro nacional que ainda não estão no modelo nem esperando aprovação. Abra a fonte, confira os números e preencha abaixo.</p>
-        <div id="detectadas"></div>
-      </section>
-
-      <section>
-        <h2>Aprovar pesquisa</h2>
-        <form id="form-pesquisa" class="grade-form">
-          <label>Registro no TSE<input class="entrada" name="registro" placeholder="BR-12345/2026" required></label>
-          <label>Instituto<input class="entrada" name="instituto" required></label>
-          <label>Campo (datas)<input class="entrada" name="campo" placeholder="14–16/10"></label>
-          <label>Divulgação<input class="entrada" name="divulgacao" placeholder="17/10"></label>
-          <label>Entrevistas<input class="entrada" name="amostra" inputmode="numeric" required></label>
-          <label>Margem de erro (pp)<input class="entrada" name="margem" inputmode="decimal" required></label>
-          <fieldset><legend>Votos totais (%)</legend>
-            <label><span id="rot-a">Candidato A</span><input class="entrada" name="flavio" inputmode="decimal"></label>
-            <label><span id="rot-b">Candidato B</span><input class="entrada" name="lula" inputmode="decimal"></label>
-          </fieldset>
-          <fieldset><legend>Votos válidos (%), como o instituto divulgou</legend>
-            <label><span id="rot-va">Candidato A</span><input class="entrada" name="flavioValido" inputmode="decimal"></label>
-            <label><span id="rot-vb">Candidato B</span><input class="entrada" name="lulaValido" inputmode="decimal"></label>
-          </fieldset>
-          <label class="largo">Link da fonte<input class="entrada" name="fonteUrl" type="url" placeholder="https://" required></label>
-          <label>Nome da fonte<input class="entrada" name="fonteNome" placeholder="ex.: Folha"></label>
-          <div class="largo"><button class="botao" type="submit">Aprovar e publicar</button> <span class="erro" id="erro-pesquisa" role="alert"></span></div>
-        </form>
-      </section>
-
-      <section>
-        <h2>No modelo (automáticas e aprovadas no painel)</h2>
-        <p class="intro">Uma automática removida aqui não volta sozinha; só pelo formulário.</p>
-        <div id="aprovadas"></div>
-      </section>
-      <section>
+      <section data-painel="conta" hidden>
         <h2>Sua conta</h2>
-        <p class="intro" id="conta-info"></p>
+        <p class="nota" id="conta-info"></p>
         <form id="form-senha" class="form-acesso">
-          <label>Senha atual<input class="entrada" name="senhaAtual" type="password" autocomplete="current-password" required></label>
-          <label>Nova senha<input class="entrada" name="novaSenha" type="password" autocomplete="new-password" minlength="10" required></label>
-          <label>Repita a nova senha<input class="entrada" name="novaSenha2" type="password" autocomplete="new-password" minlength="10" required></label>
-          <div><button class="botao-2" type="submit">Trocar senha</button> <span class="erro" id="erro-senha" role="alert"></span></div>
+          <label>Senha atual<input class="entrada" name="senhaAtual" type="password" autocomplete="current-password" maxlength="200" required></label>
+          <label>Nova senha<input class="entrada" name="novaSenha" type="password" autocomplete="new-password" minlength="10" maxlength="200" required></label>
+          <label>Repita a nova senha<input class="entrada" name="novaSenha2" type="password" autocomplete="new-password" minlength="10" maxlength="200" required></label>
+          <button class="botao-2" type="submit">Trocar senha</button>
+          <span class="adm-msg" id="erro-senha" role="alert"></span>
         </form>
         <p><button class="botao-2" type="button" id="ver-env">Mostrar a variável ADMIN_LOGIN</button></p>
+        <h2>Conferência de segurança</h2>
+        <p class="nota" id="conta-ip"></p>
       </section>
-      <p><button class="botao-2" id="sair" type="button">Sair</button></p>
     </div>
   </main>
   <script type="module" src="/js/admin.js"></script>

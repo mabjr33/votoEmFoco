@@ -15,6 +15,8 @@ import { ELEICOES } from './shared/historico.js';
 import { Pesquisas } from './pesquisas.js';
 import { criarAdmin } from './admin.js';
 import { criarBanco } from './banco.js';
+import { Visitas } from './visitas.js';
+import { ipCliente, LimitadorIp } from './rede.js';
 import { criarAutomacao } from './pesquisas-auto/automacao.js';
 
 const MIME = {
@@ -75,19 +77,29 @@ function proximasRegistradas(cadastro) {
     .map(({ registro, instituto, inicio, fim, divulgacao, amostra }) => ({ registro, instituto, inicio, fim, divulgacao, amostra }));
 }
 
-export function createApp(cfg, collector, noticias = null, { pesquisas = new Pesquisas(null), cadastro = null, banco = null, bancoErro = null, log = console } = {}) {
+export function createApp(cfg, collector, noticias = null, { pesquisas = new Pesquisas(null), cadastro = null, banco = null, bancoErro = null, visitas = new Visitas(), log = console } = {}) {
   const sseClients = new Set();
+  // Saltos de proxy confiáveis (TRUST_PROXY): define de onde sai o IP do visitante
+  const saltos = Number(cfg.trustProxy) || 0;
+  const ipDe = (req) => ipCliente(req, saltos);
+  const limitador = new LimitadorIp({ porSegundo: Number(cfg.limitePorSegundo) || 40, rajada: Number(cfg.limiteRajada) || 200 });
+  const limpeza = setInterval(() => limitador.limpar(), 60_000);
+  limpeza.unref();
+  const ssePorIp = new Map(); // ip -> conexões ao vivo abertas
   const avisarTodos = (ev) => { const msg = `event: update
 data: ${JSON.stringify(ev)}
 
 `; for (const res of sseClients) res.write(msg); };
   const admin = criarAdmin({
     // conta do painel fora de data/mock (apagada a cada execução do modo de teste)
-    token: cfg.adminToken, loginEnv: cfg.adminLogin, banco, bancoErro, dataDir: cfg.cacheDir || cfg.dataDir, acesso: cfg.acesso, collector, noticias, pesquisas, cadastro, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
+    token: cfg.adminToken, loginEnv: cfg.adminLogin, banco, bancoErro, dataDir: cfg.cacheDir || cfg.dataDir, acesso: cfg.acesso, collector, noticias, pesquisas, cadastro, conexoes: () => sseClients.size, trustProxy: saltos, visitas, log,
     aoMudarPesquisas: () => avisarTodos({ raceId: 'pesquisas' }),
   });
   // Cada conexão ao vivo segura um socket aberto: com teto, uma enxurrada de conexões não derruba o servidor
   const maxSse = Number(cfg.maxSse || process.env.MAX_SSE || 5000);
+  // Por IP: alto, porque muita gente divide o mesmo IP de operadora (CGNAT), mas impede que um só
+  // endereço ocupe todas as vagas
+  const maxSseIp = Number(cfg.maxSseIp || process.env.MAX_SSE_IP || 60);
   const urlPublica = /^https?:\/\/[^\s"<>]+$/.test(cfg.publicUrl || '') ? cfg.publicUrl.replace(/\/+$/, '') : '';
   const payloadCache = new Map(); // raceId -> { version, ready, json }
   const jsonCache = new Map(); // rota -> corpo do último JSON enviado (reaproveitado enquanto não muda)
@@ -181,15 +193,18 @@ data: ${JSON.stringify(ev)}
     res.end('Não encontrado');
   }
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     try {
       for (const [k, v] of Object.entries(SEGURANCA)) res.setHeader(k, v);
       if (cfg.modoTeste) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       // HSTS só faz sentido atrás de HTTPS (o proxy da hospedagem informa em X-Forwarded-Proto)
       if (req.headers['x-forwarded-proto'] === 'https') res.setHeader('Strict-Transport-Security', 'max-age=15552000');
+      const ip = ipDe(req);
+      if (!limitador.permite(ip)) { res.writeHead(429, { 'Retry-After': '5', 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Muitas requisições. Espere alguns segundos.'); }
       const url = new URL(req.url, 'http://x');
       const p = url.pathname;
       if (p.startsWith('/api/admin/') && await admin(req, res, p)) return;
+      if (p === '/admin.html') res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); return res.end(); }
       if (p === '/api/pesquisas') return sendJson(req, res, { versao: pesquisas.versao, itens: pesquisas.itens, registradas: proximasRegistradas(cadastro) }, { maxAge: 30 });
 
@@ -227,20 +242,32 @@ data: ${JSON.stringify(ev)}
         return sendJson(req, res, c.json, { maxAge: 2 });
       }
       if (p === '/api/stream') {
-        if (sseClients.size >= maxSse) { res.writeHead(503, { 'Retry-After': '30', 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Muitas conexões'); }
+        const doIp = ssePorIp.get(ip) || 0;
+        if (sseClients.size >= maxSse || doIp >= maxSseIp) { res.writeHead(503, { 'Retry-After': '30', 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Muitas conexões'); }
+        ssePorIp.set(ip, doIp + 1);
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write(`retry: 5000\nevent: hello\ndata: ${JSON.stringify({ races: collector.raceList() })}\n\n`);
         sseClients.add(res);
-        req.on('close', () => sseClients.delete(res));
+        req.on('close', () => {
+          sseClients.delete(res);
+          const n = (ssePorIp.get(ip) || 1) - 1;
+          if (n > 0) ssePorIp.set(ip, n); else ssePorIp.delete(ip);
+        });
         return;
       }
+      if (p === '/' || p === '/index.html') visitas.registrar(req, ip);
       return serveStatic(req, res, p === '/' ? '/index.html' : p);
     } catch (err) {
-      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
       res.end('Erro interno');
       console.error(err);
     }
   });
+  // Conexões lentas de propósito (slowloris) não seguram o servidor: cabeçalhos em 15 s, pedido em 30 s
+  server.headersTimeout = 15_000;
+  server.requestTimeout = 30_000;
+  server.keepAliveTimeout = 10_000;
+  return server;
 }
 
 export async function main(overrides = {}) {
@@ -258,8 +285,11 @@ export async function main(overrides = {}) {
   if (banco) console.log(`[banco] Supabase ligado (${banco.url}): pesquisas e acesso ao painel ficam no banco`);
   const pesquisas = new Pesquisas(cfg.dataDir, { banco });
   await pesquisas.carregar();
+  const visitas = new Visitas({ dataDir: cfg.dataDir, banco });
+  await visitas.carregar();
+  visitas.start();
   const auto = noticias && cfg.pesquisasTse?.url && process.env.PESQUISAS_AUTO !== '0' ? criarAutomacao({ cfg, noticias, pesquisas, e26 }) : null;
-  const server = createApp(cfg, collector, noticias, { pesquisas, cadastro: auto?.cadastro, banco, bancoErro });
+  const server = createApp(cfg, collector, noticias, { pesquisas, cadastro: auto?.cadastro, banco, bancoErro, visitas });
   if (cfg.adminToken || cfg.adminLogin) console.log(`[admin] painel em /admin.html (${cfg.adminLogin ? 'entrar com usuário e senha' : 'primeiro acesso: crie usuário e senha com o código de instalação ADMIN_TOKEN'})`);
   await new Promise((r) => server.listen(cfg.port, cfg.host, r));
   console.log(`[servidor] http://localhost:${cfg.port}  (fonte: ${cfg.base}/${cfg.ambiente}, polling ${cfg.pollIntervalMs / 1000}s, máx ${cfg.maxRps} req/s)`);
@@ -268,7 +298,12 @@ export async function main(overrides = {}) {
   if (noticias) (async () => { for (let i = 0; i < 60 && !collector.ready; i++) await new Promise((r) => setTimeout(r, 500)); noticias.start(); })();
   if (noticias) console.log(`[notícias] ${noticias.fontes.length} veículos, leitura a cada ${noticias.intervaloMs / 1000} s`);
   if (auto) { auto.start(); console.log('[pesquisas] entrada automática: cadastro do TSE a cada 6 h + reportagens de pesquisa (2 veículos com os mesmos números)'); }
-  const shutdown = () => { collector.stop(); noticias?.stop(); auto?.stop(); server.close(() => process.exit(0)); };
+  const shutdown = async () => {
+    collector.stop(); noticias?.stop(); auto?.stop();
+    await visitas.stop().catch(() => {}); // grava os acessos do dia antes de sair
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 5000).unref(); // conexões ao vivo não seguram a saída
+  };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
   return { server, collector, noticias, cfg };

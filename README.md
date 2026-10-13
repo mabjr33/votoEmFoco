@@ -68,7 +68,8 @@ docker run -p 3000:3000 -v $(pwd)/data:/app/data eleicoes-ao-vivo
 | `ADMIN_TOKEN` | (vazio) | Código de instalação do painel `/admin.html` (16+ caracteres): pedido para criar ou redefinir o acesso. Não é a senha |
 | `ADMIN_LOGIN` | (vazio) | Usuário e hash da senha do painel (o painel gera a linha). Mantém o acesso quando o disco é apagado |
 | `PUBLIC_URL` | (vazio) | Endereço público, ex.: `https://seudominio.com.br` (prévia ao compartilhar) |
-| `TRUST_PROXY` | 0 | `1` atrás de proxy/CDN: usa o IP de `X-Forwarded-For` no limite de tentativas do painel |
+| `TRUST_PROXY` | 0 | Quantos proxies confiáveis há na frente: `1` só a hospedagem (Render), `2` CDN + hospedagem. Define o IP do visitante para os limites; o painel (aba Conta) mostra o IP que o servidor vê, para conferir |
+| `MAX_SSE_IP` | 60 | Conexões ao vivo por IP (alto por causa do IP compartilhado das operadoras) |
 | `PESQUISAS_AUTO` | 1 | `0` desliga a entrada automática de pesquisas (cadastro do TSE + reportagens) |
 
 ## O simulador ao vivo
@@ -201,7 +202,12 @@ As cidades do exterior só são varridas quando o total do exterior muda, no má
 4. **Esqueceu a senha:** "Esqueci a senha" com o código de instalação define usuário e senha novos e encerra todas as sessões.
 5. **Sessão:** 12 h, no cabeçalho `Authorization` (sem cookie, então sem CSRF), guardada só na aba do navegador. Dez tentativas erradas bloqueiam o IP por alguns minutos.
 
-Sem `ADMIN_TOKEN` e sem `ADMIN_LOGIN`, o painel não existe (as rotas respondem 404). O painel mostra:
+Sem `ADMIN_TOKEN` e sem `ADMIN_LOGIN`, o painel não existe (as rotas respondem 404). O painel tem quatro abas:
+
+- **Visão geral:** se TSE, banco, notícias e cadastro de pesquisas estão funcionando; acessos ao site (visitantes e aberturas hoje e ontem, quem está com o site aberto agora, gráfico de 14 dias); aviso quando há pesquisa esperando aprovação.
+- **Acessos:** sem cookie e sem guardar IP. Visitante único do dia = resumo (hash) de IP + navegador com um sal sorteado por dia, só na memória; robôs, prévias de link e monitores não contam. Totais por dia no banco (`visitas_diarias`) e em `data/visitas.json`. Após um reinício, quem volta no mesmo dia pode contar de novo.
+
+Detalhes:
 
 - **Saúde:** há quanto tempo o TSE respondeu, pausas por limite de acesso, UFs do 2º turno na configuração do TSE, disputas, feeds e conexões ao vivo. Atualiza a cada 10 s.
 - **Cadastro de pesquisas do TSE:** quantas pesquisas presidenciais tem e quando foi lido.
@@ -241,7 +247,12 @@ O servidor precisa ficar ligado o tempo todo (consulta o TSE a cada 15 s), entã
 - **Conteúdo de fora:** tudo que vem do TSE e dos feeds passa por escape antes de virar HTML; links de notícia só com `http(s)`; feed acima de 5 MB é recusado; o proxy de fotos só serve candidatos já carregados e só JPEG, PNG, WebP ou GIF.
 - **Arquivos:** os estáticos saem só de `public/` e `src/shared/`, sem como escapar da pasta.
 - **Carga:** cada resposta é comprimida uma vez (Brotli ou gzip) e reaproveitada enquanto não muda; ETag devolve 304 sem corpo. Num teste local, com 200 clientes simultâneos na apuração de presidente, o servidor foi de cerca de 1.000 para 15.000 respostas por segundo. Fotos iguais pedidas ao mesmo tempo viram uma só requisição ao TSE.
-- **Fica com a hospedagem:** HTTPS, limite de requisições por IP e CDN na frente de `/api/*`.
+- **Limites:** 40 requisições/s por IP (rajada de 200), 60 conexões ao vivo por IP e 5.000 no total; generosos de propósito, porque muita gente divide o IP da operadora. Cabeçalhos em até 15 s e pedido em até 30 s (contra conexões lentas de propósito).
+- **IP do visitante:** com `TRUST_PROXY`, vale o endereço que o proxy acrescentou no fim de `X-Forwarded-For`, não o começo (que o visitante pode inventar para escapar do limite de tentativas).
+- **Painel:** senha só como hash scrypt; 10 tentativas erradas por IP bloqueiam por 10 min; no máximo 2 conferências de senha ao mesmo tempo (fila de 16; o resto recebe "ocupado"), para uma enxurrada de logins não esgotar a memória; `noindex`; links de feeds só `http(s)`.
+- **Leitura de reportagens (SSRF):** o servidor só abre links que resolvem para endereços públicos e confere cada redirecionamento; rede interna, `localhost`, metadados da nuvem e portas fora do padrão são recusados.
+- **Segredos:** chave do banco, `ADMIN_TOKEN` e `ADMIN_LOGIN` só no Environment da hospedagem; o RLS do Supabase deixa a chave pública sem acesso a nada.
+- **Fica com a hospedagem:** HTTPS e proteção contra ataque distribuído (DDoS). Para a noite da eleição, o Cloudflare gratuito na frente do site é a defesa mais forte (com ele, use `TRUST_PROXY=2`).
 
 ## Estrutura
 

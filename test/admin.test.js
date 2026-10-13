@@ -12,7 +12,7 @@ import { Acesso, validarCredenciais, gerarHash, conferirHash } from '../src/aces
 import { PESQUISAS_2026_2T } from '../src/shared/historico.js';
 
 const TOKEN = 'senha-de-teste-bem-longa-123'; // código de instalação (ADMIN_TOKEN)
-const USUARIO = 'marcelo', SENHA = 'sol de outubro na praia';
+const USUARIO = 'dono.teste', SENHA = 'sol de outubro na praia';
 // Pesquisa fictícia, só para o teste
 const NOVA = { registro: 'BR-99999/2026', instituto: 'Instituto Teste', campo: '14–16/10', amostra: 2000, margem: 2, flavioValido: 45, lulaValido: 55, fonteUrl: 'https://example.com/pesquisa' };
 
@@ -96,7 +96,7 @@ test('acesso: regras de senha (sem admin/admin nem senha óbvia) e hash scrypt',
   assert.match(validarCredenciais('ana', 'senha12345'), /fácil/);
   assert.match(validarCredenciais('ana', '1234567890'), /fácil/);
   assert.match(validarCredenciais('ana', 'aaaaaaaaaaaa'), /fácil/);
-  assert.match(validarCredenciais('marcelo', 'Marcelo2026!!'), /usuário/);
+  assert.match(validarCredenciais('dono.teste', 'Dono.Teste2026!!'), /usuário/);
   assert.match(validarCredenciais('Ma', SENHA), /Usuário/);
   assert.equal(validarCredenciais(USUARIO, SENHA), null);
   const h = await gerarHash(SENHA);
@@ -117,7 +117,7 @@ test('acesso: criar exige o código de instalação; o código não serve para e
     const r = await postar(`${base}/api/admin/criar`, { codigo: TOKEN, usuario: USUARIO, senha: SENHA });
     assert.equal(r.status, 201);
     const { sessao, linhaVariavel } = await r.json();
-    assert.match(linhaVariavel, /^ADMIN_LOGIN=marcelo:scrypt\$/);
+    assert.match(linhaVariavel, /^ADMIN_LOGIN=dono.teste:scrypt\$/);
     assert.ok(!linhaVariavel.includes(SENHA));
     assert.equal((await fetch(`${base}/api/admin/estado`).then((x) => x.json())).configurado, true);
     // O ADMIN_TOKEN não é senha do painel
@@ -133,7 +133,7 @@ test('acesso: entrar, sair, trocar senha e redefinir com o código', async () =>
     await criarAcesso(base);
     assert.equal((await postar(`${base}/api/admin/entrar`, { usuario: USUARIO, senha: 'senha errada aqui' })).status, 401);
     assert.equal((await postar(`${base}/api/admin/entrar`, { usuario: 'outro', senha: SENHA })).status, 401);
-    const e = await postar(`${base}/api/admin/entrar`, { usuario: 'Marcelo', senha: SENHA }); // sem diferença de maiúsculas
+    const e = await postar(`${base}/api/admin/entrar`, { usuario: 'Dono.Teste', senha: SENHA }); // sem diferença de maiúsculas
     assert.equal(e.status, 200);
     const auth = { Authorization: `Bearer ${(await e.json()).sessao}` };
     assert.equal((await (await fetch(`${base}/api/admin/conta`, { headers: auth })).json()).usuario, USUARIO);
@@ -162,7 +162,7 @@ test('acesso: guardado em disco e na variável ADMIN_LOGIN; arquivo vale mais qu
     const a = new Acesso({ dataDir: dir, codigoInstalacao: TOKEN });
     await a.carregar();
     const { linhaVariavel } = await a.definir({ codigo: TOKEN, usuario: USUARIO, senha: SENHA });
-    assert.match(await readFile(path.join(dir, 'admin-acesso.json'), 'utf8'), /"usuario":"marcelo"/);
+    assert.match(await readFile(path.join(dir, 'admin-acesso.json'), 'utf8'), /"usuario":"dono.teste"/);
     // Outro servidor, só com a variável (disco apagado): entra com a mesma senha, sem código
     const b = new Acesso({ loginEnv: linhaVariavel.slice('ADMIN_LOGIN='.length) });
     await b.carregar();

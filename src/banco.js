@@ -70,6 +70,18 @@ export class BancoSupabase {
     await this.req('POST', 'painel_acesso?on_conflict=id', [{ id: 1, usuario, hash, atualizado_em: new Date().toISOString() }], 'resolution=merge-duplicates,return=minimal');
   }
 
+  /** Totais por dia dos últimos `dias` dias: [{ dia, visitantes, paginas }]. */
+  async lerVisitas(dias = 90) {
+    const desde = new Date(Date.now() - dias * 86_400_000).toISOString().slice(0, 10);
+    const linhas = await this.req('GET', `visitas_diarias?select=dia,visitantes,paginas&dia=gte.${desde}&order=dia.asc`);
+    return linhas.map((l) => ({ dia: l.dia, visitantes: Number(l.visitantes), paginas: Number(l.paginas) }));
+  }
+
+  async gravarVisitas(linhas) {
+    if (!linhas.length) return;
+    await this.req('POST', 'visitas_diarias?on_conflict=dia', linhas.map(({ dia, visitantes, paginas }) => ({ dia, visitantes, paginas })), 'resolution=merge-duplicates,return=minimal');
+  }
+
   estado() { return { ok: !this.ultimoErro, ultimoOk: this.ultimoOk, erro: this.ultimoErro }; }
 }
 

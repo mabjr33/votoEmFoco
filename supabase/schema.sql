@@ -37,10 +37,18 @@ create table if not exists painel_acesso (
   atualizado_em  timestamptz not null default now()
 );
 
+-- Acessos ao site por dia (só totais; nenhum IP, nenhum cookie)
+create table if not exists visitas_diarias (
+  dia         date primary key,
+  visitantes  integer not null default 0 check (visitantes >= 0),
+  paginas     integer not null default 0 check (paginas >= 0)
+);
+
 alter table pesquisas enable row level security;
 alter table pesquisas_ignoradas enable row level security;
 alter table painel_acesso enable row level security;
+alter table visitas_diarias enable row level security;
 
 -- Só o servidor (service_role / chave secreta) usa as tabelas; o público não tem acesso
-grant select, insert, update, delete on pesquisas, pesquisas_ignoradas, painel_acesso to service_role;
-revoke all on pesquisas, pesquisas_ignoradas, painel_acesso from anon, authenticated;
+grant select, insert, update, delete on pesquisas, pesquisas_ignoradas, painel_acesso, visitas_diarias to service_role;
+revoke all on pesquisas, pesquisas_ignoradas, painel_acesso, visitas_diarias from anon, authenticated;

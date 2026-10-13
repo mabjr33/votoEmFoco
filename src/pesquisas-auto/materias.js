@@ -7,6 +7,7 @@ import path from 'node:path';
 import { lerLimitado } from '../noticias/coletor.js';
 import { decodificarCorpo } from '../noticias/rss.js';
 import { extrairPesquisa, VERSAO_EXTRATOR } from './extrair.js';
+import { fetchPublico } from '../rede.js';
 
 const AGENTE = 'Mozilla/5.0 (compatible; ApuracaoEleicoes/1.0; leitor de pesquisas)';
 const MAX_PAGINA = 3 * 1024 * 1024;
@@ -16,7 +17,7 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 export const hostDe = (u) => { try { return new URL(u).hostname.toLowerCase().replace(/^(www|m|amp)\./, ''); } catch { return ''; } };
 
 export class LeitorMaterias {
-  /** opcoes: { dataDir, candidatos, maxPorCiclo, diasMax, pausaMs, fetch, log } */
+  /** opcoes: { dataDir, candidatos, maxPorCiclo, diasMax, pausaMs, fetch, resolver (DNS, para testes), log } */
   constructor(opcoes = {}) {
     this.arquivo = opcoes.dataDir ? path.join(opcoes.dataDir, 'materias-pesquisa.json') : null;
     this.candidatos = opcoes.candidatos;
@@ -24,6 +25,7 @@ export class LeitorMaterias {
     this.diasMax = opcoes.diasMax ?? 5;
     this.pausaMs = opcoes.pausaMs ?? 1500;
     this.fetch = opcoes.fetch || globalThis.fetch;
+    this.resolver = opcoes.resolver;
     this.log = opcoes.log || console;
     this.lidas = new Map(); // link -> { link, host, fonte, data, lidoEm, registros, validos, totais, margem, erro }
     this.rodando = false;
@@ -46,7 +48,8 @@ export class LeitorMaterias {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 20_000);
     try {
-      const r = await this.fetch(link, { headers: { 'User-Agent': AGENTE, Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5' }, signal: ctrl.signal, redirect: 'follow' });
+      // O link vem de um feed: só abre endereço público, e confere cada redirecionamento (SSRF)
+      const r = await fetchPublico(this.fetch, link, { headers: { 'User-Agent': AGENTE, Accept: 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5' }, signal: ctrl.signal }, { resolver: this.resolver });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       if (!/html/i.test(r.headers.get('content-type') || 'text/html')) throw new Error('não é HTML');
       const html = decodificarCorpo(await lerLimitado(r, MAX_PAGINA), r.headers.get('content-type') || '');

@@ -182,3 +182,26 @@ test('ao vivo: avisos de um mesmo ciclo saem juntos, com a lista enxuta; recarga
     srv.close();
   }
 });
+
+test('servidor: limite por IP (429), teto de conexões ao vivo por IP e visita contada na página inicial', async () => {
+  const col = coletorFalso();
+  const srv = createApp({ limitePorSegundo: 1, limiteRajada: 5, maxSseIp: 1 }, col);
+  const base = await ouvir(srv);
+  try {
+    assert.equal(srv.headersTimeout, 15_000, 'slowloris: cabeçalhos em 15 s');
+    const st = [];
+    for (let i = 0; i < 7; i++) st.push((await fetch(`${base}/api/status`)).status);
+    assert.deepEqual(st.slice(0, 5), [200, 200, 200, 200, 200]);
+    assert.equal(st.at(-1), 429);
+  } finally { srv.close(); }
+
+  const srv2 = createApp({ maxSseIp: 1 }, col);
+  const base2 = await ouvir(srv2);
+  const ctrl = new AbortController();
+  try {
+    const a = await fetch(`${base2}/api/stream`, { signal: ctrl.signal });
+    assert.equal(a.status, 200);
+    assert.equal((await fetch(`${base2}/api/stream`)).status, 503, 'mesmo IP, segunda conexão ao vivo');
+    assert.equal((await fetch(`${base2}/admin.html`)).headers.get('x-robots-tag'), 'noindex, nofollow');
+  } finally { ctrl.abort(); srv2.closeAllConnections?.(); srv2.close(); }
+});

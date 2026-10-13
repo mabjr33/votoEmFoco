@@ -4,19 +4,20 @@
 // sessão vai no cabeçalho "Authorization: Bearer <sessão>" (sem cookie, então sem risco de CSRF).
 
 import { Acesso } from './acesso.js';
+import { ipCliente } from './rede.js';
 
 const MAX_CORPO = 16 * 1024;
 const JANELA_FALHAS = 10 * 60_000;
 const MAX_FALHAS = 10;
 
-export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = null, banco = null, bancoErro = null, collector, noticias, pesquisas, cadastro = null, conexoes, aoMudarPesquisas, trustProxy = false, log = console }) {
+export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = null, banco = null, bancoErro = null, collector, noticias, pesquisas, cadastro = null, conexoes, aoMudarPesquisas, trustProxy = 0, visitas = null, log = console }) {
   if (token && token.length < 16) log.warn?.('[admin] ADMIN_TOKEN com menos de 16 caracteres: não serve como código de instalação');
   const contas = acesso || new Acesso({ dataDir, loginEnv, codigoInstalacao: token, banco, log });
   const carregado = contas.carregar();
   const falhas = new Map(); // ip -> [instantes]
   const inicio = Date.now();
 
-  const ipDe = (req) => (trustProxy && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || req.socket.remoteAddress || '?';
+  const ipDe = (req) => ipCliente(req, Number(trustProxy) || 0);
   function responder(res, status, obj) {
     const json = JSON.stringify(obj);
     res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Length': Buffer.byteLength(json) });
@@ -88,7 +89,11 @@ export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = nu
       let corpo;
       try { corpo = await lerCorpo(req); } catch { return responder(res, 400, { erro: 'Corpo inválido.' }), true; }
       // Criar quando já existe conta é "redefinir": exige o código de instalação do mesmo jeito
-      const r = p === '/api/admin/criar' ? await contas.definir(corpo) : await contas.entrar(corpo);
+      let r;
+      try { r = p === '/api/admin/criar' ? await contas.definir(corpo) : await contas.entrar(corpo); } catch (e) {
+        if (e.ocupado) return responder(res, 503, { erro: e.message }), true;
+        throw e;
+      }
       if (r.erro) {
         if (r.status === 401) falhou(ip);
         return responder(res, r.status, { erro: r.erro }), true;
@@ -110,7 +115,12 @@ export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = nu
         log.info?.(`[admin] senha trocada: ${contas.conta.usuario}`);
         return responder(res, 200, r), true;
       }
-      if (p === '/api/admin/conta' && req.method === 'GET') return responder(res, 200, { usuario: contas.conta.usuario, origem: contas.conta.origem, linhaVariavel: contas.linhaVariavel() }), true;
+      if (p === '/api/admin/conta' && req.method === 'GET') {
+        // Para conferir TRUST_PROXY: o IP que o servidor atribui a você deve ser o seu IP de verdade
+        const cadeia = String(req.headers['x-forwarded-for'] || '').split(',').filter((s) => s.trim()).length;
+        return responder(res, 200, { usuario: contas.conta.usuario, origem: contas.conta.origem, linhaVariavel: contas.linhaVariavel(), ipVisto: ip, enderecosNoCabecalho: cadeia, saltosProxy: Number(trustProxy) || 0 }), true;
+      }
+      if (p === '/api/admin/visitas' && req.method === 'GET') return responder(res, 200, { ...(visitas ? visitas.resumo(14) : { dias: [] }), agora: conexoes() }), true;
       if (p === '/api/admin/saude' && req.method === 'GET') return responder(res, 200, saude()), true;
       if (p === '/api/admin/pesquisas' && req.method === 'GET') {
         const itens = noticias?.payload().itens || [];
@@ -136,6 +146,7 @@ export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = nu
       }
       return responder(res, 404, { erro: 'Rota não encontrada.' }), true;
     } catch (e) {
+      if (e.ocupado) return responder(res, 503, { erro: e.message }), true;
       log.error?.('[admin]', e);
       return responder(res, 500, { erro: 'Erro interno.' }), true;
     }

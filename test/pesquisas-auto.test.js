@@ -237,7 +237,7 @@ test('reportagens: só pesquisa de presidente, uma leitura por link', async () =
     lidos.push(url);
     return new Response(pagina(['Flávio tem 51% e Lula, 49% dos votos válidos. Registro BR-01111/2026.']), { headers: { 'content-type': 'text/html; charset=utf-8' } });
   };
-  const m = new LeitorMaterias({ candidatos: C, fetch, pausaMs: 0 });
+  const m = new LeitorMaterias({ candidatos: C, fetch, pausaMs: 0, resolver: async () => [{ address: '200.147.3.157', family: 4 }] });
   const agora = Date.parse('2026-10-16T15:00:00Z');
   const itens = [
     { link: 'https://a.com.br/1', fonte: 'A', data: agora - 3600e3, etiquetas: ['pesquisa', 'presidente'] },

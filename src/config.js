@@ -29,7 +29,8 @@ export function loadConfig(overrides = {}) {
     supabaseUrl: env.SUPABASE_URL || null,
     supabaseChave: env.SUPABASE_SERVICE_KEY || null, // usuário e hash da senha do painel, gerados pelo próprio painel
     publicUrl: env.PUBLIC_URL || null,
-    trustProxy: env.TRUST_PROXY === '1',
+    // Quantos proxies confiáveis há na frente (1 = só a hospedagem; 2 = CDN + hospedagem). 0 = nenhum.
+    trustProxy: /^[0-3]$/.test(env.TRUST_PROXY || '') ? Number(env.TRUST_PROXY) : 0,
     ...overrides,
   };
   // Os arquivos locais do 1º turno são do TSE oficial: com outra fonte (modo de teste), não se misturam

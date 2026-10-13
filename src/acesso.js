@@ -22,9 +22,23 @@ const USUARIO = /^[a-z0-9._-]{3,32}$/;
 const COMUNS = new Set(['admin', 'administrador', 'administrator', 'senha', 'password', 'qwerty', 'abc123', 'root', 'eleicao', 'eleicoes', 'votoemfoco', 'brasil']);
 const sha = (s) => createHash('sha256').update(String(s)).digest();
 
+// Cada cálculo usa ~16 MB: uma enxurrada de tentativas de login ao mesmo tempo esgotaria a memória
+// do servidor. Poucos cálculos de cada vez, fila curta; o resto recebe "ocupado" (503) na hora.
+const MAX_SIMULTANEOS = 2;
+const MAX_FILA = 16;
+let ocupados = 0;
+const fila = [];
+async function comVaga(fn) {
+  if (ocupados >= MAX_SIMULTANEOS) {
+    if (fila.length >= MAX_FILA) throw Object.assign(new Error('Servidor ocupado. Tente de novo em instantes.'), { ocupado: true });
+    await new Promise((r) => fila.push(r)); // a vaga é passada direto por quem terminou
+  } else ocupados++;
+  try { return await fn(); } finally { const prox = fila.shift(); if (prox) prox(); else ocupados--; }
+}
+
 export async function gerarHash(senha) {
   const sal = randomBytes(16);
-  const h = await scrypt(String(senha).normalize('NFC'), sal, 32, PARAM);
+  const h = await comVaga(() => scrypt(String(senha).normalize('NFC'), sal, 32, PARAM));
   return `scrypt$${PARAM.N}$${PARAM.r}$${PARAM.p}$${sal.toString('base64url')}$${h.toString('base64url')}`;
 }
 
@@ -32,7 +46,7 @@ export async function conferirHash(senha, guardado) {
   const [tipo, N, r, p, sal, h] = String(guardado || '').split('$');
   if (tipo !== 'scrypt' || !sal || !h) return false;
   const esperado = Buffer.from(h, 'base64url');
-  const calc = await scrypt(String(senha).normalize('NFC'), Buffer.from(sal, 'base64url'), esperado.length, { N: Number(N), r: Number(r), p: Number(p), maxmem: 64 * 1024 * 1024 });
+  const calc = await comVaga(() => scrypt(String(senha).normalize('NFC'), Buffer.from(sal, 'base64url'), esperado.length, { N: Number(N), r: Number(r), p: Number(p), maxmem: 64 * 1024 * 1024 }));
   return calc.length === esperado.length && timingSafeEqual(calc, esperado);
 }
 
@@ -121,6 +135,7 @@ export class Acesso {
   }
 
   async entrar({ usuario, senha }) {
+    if (typeof senha !== 'string' || senha.length > 200) return { erro: 'Usuário ou senha incorretos.', status: 401 };
     const u = String(usuario || '').trim().toLowerCase();
     const certo = this.conta && u === this.conta.usuario;
     // Mesmo com usuário errado, faz a conta inteira: o tempo de resposta não revela se o usuário existe
