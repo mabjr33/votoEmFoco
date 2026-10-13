@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { BancoSupabase, criarBanco } from '../src/banco.js';
+import { BancoSupabase, criarBanco, urlDoProjeto } from '../src/banco.js';
 import { Pesquisas } from '../src/pesquisas.js';
 import { Acesso, gerarHash } from '../src/acesso.js';
 
@@ -62,6 +62,16 @@ test('criarBanco só existe com URL e chave, e exige https', () => {
   assert.equal(criarBanco({ supabaseUrl: 'https://x.supabase.co' }), null);
   assert.throws(() => criarBanco({ supabaseUrl: 'http://x.supabase.co', supabaseChave: 'k' }), /https/);
   assert.ok(criarBanco({ supabaseUrl: 'https://x.supabase.co', supabaseChave: 'k' }) instanceof BancoSupabase);
+  assert.equal(criarBanco({ supabaseUrl: ' https://x.supabase.co/rest/v1/ ', supabaseChave: ' "k" ' }).chave, 'k', 'aspas e espaços na chave');
+});
+
+test('SUPABASE_URL aceita os enganos comuns ao colar', () => {
+  const certo = 'https://abcdefghijklmnop.supabase.co';
+  for (const colado of [certo, `${certo}/`, `${certo}/rest/v1/`, ` ${certo} `, `"${certo}"`, 'abcdefghijklmnop.supabase.co',
+    'https://supabase.com/dashboard/project/abcdefghijklmnop', 'https://supabase.com/dashboard/project/abcdefghijklmnop/settings/api']) {
+    assert.equal(urlDoProjeto(colado), certo, colado);
+  }
+  for (const ruim of ['', 'sb_secret_abc', 'http://abcdefghijklmnop.supabase.co', 'https://', 'não sei']) assert.equal(urlDoProjeto(ruim), null, ruim);
 });
 
 test('grava e lê pesquisas, converte nomes de coluna e remove o que saiu', async () => {

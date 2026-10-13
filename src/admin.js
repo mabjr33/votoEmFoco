@@ -9,7 +9,7 @@ const MAX_CORPO = 16 * 1024;
 const JANELA_FALHAS = 10 * 60_000;
 const MAX_FALHAS = 10;
 
-export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = null, banco = null, collector, noticias, pesquisas, cadastro = null, conexoes, aoMudarPesquisas, trustProxy = false, log = console }) {
+export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = null, banco = null, bancoErro = null, collector, noticias, pesquisas, cadastro = null, conexoes, aoMudarPesquisas, trustProxy = false, log = console }) {
   if (token && token.length < 16) log.warn?.('[admin] ADMIN_TOKEN com menos de 16 caracteres: não serve como código de instalação');
   const contas = acesso || new Acesso({ dataDir, loginEnv, codigoInstalacao: token, banco, log });
   const carregado = contas.carregar();
@@ -68,7 +68,7 @@ export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = nu
       },
       disputas: races,
       noticias: n ? { atualizadoEm: n.atualizadoEm, fontes: n.fontes } : null,
-      banco: banco ? banco.estado() : null,
+      banco: banco ? banco.estado() : bancoErro ? { ok: false, erro: bancoErro } : null,
       cadastroPesquisas: cadastro ? { atualizadoEm: cadastro.atualizadoEm, erro: cadastro.erro, pesquisas: cadastro.itens.size } : null,
     };
   }

@@ -75,7 +75,7 @@ function proximasRegistradas(cadastro) {
     .map(({ registro, instituto, inicio, fim, divulgacao, amostra }) => ({ registro, instituto, inicio, fim, divulgacao, amostra }));
 }
 
-export function createApp(cfg, collector, noticias = null, { pesquisas = new Pesquisas(null), cadastro = null, banco = null, log = console } = {}) {
+export function createApp(cfg, collector, noticias = null, { pesquisas = new Pesquisas(null), cadastro = null, banco = null, bancoErro = null, log = console } = {}) {
   const sseClients = new Set();
   const avisarTodos = (ev) => { const msg = `event: update
 data: ${JSON.stringify(ev)}
@@ -83,7 +83,7 @@ data: ${JSON.stringify(ev)}
 `; for (const res of sseClients) res.write(msg); };
   const admin = criarAdmin({
     // conta do painel fora de data/mock (apagada a cada execução do modo de teste)
-    token: cfg.adminToken, loginEnv: cfg.adminLogin, banco, dataDir: cfg.cacheDir || cfg.dataDir, acesso: cfg.acesso, collector, noticias, pesquisas, cadastro, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
+    token: cfg.adminToken, loginEnv: cfg.adminLogin, banco, bancoErro, dataDir: cfg.cacheDir || cfg.dataDir, acesso: cfg.acesso, collector, noticias, pesquisas, cadastro, conexoes: () => sseClients.size, trustProxy: !!cfg.trustProxy, log,
     aoMudarPesquisas: () => avisarTodos({ raceId: 'pesquisas' }),
   });
   // Cada conexão ao vivo segura um socket aberto: com teto, uma enxurrada de conexões não derruba o servidor
@@ -252,12 +252,14 @@ export async function main(overrides = {}) {
     ...cfg.noticias, dataDir: cfg.dataDir,
     contexto: () => ({ ...collector.contextoNoticias(), apelidos: [e26.lider.nome, e26.segundo.nome] }),
   }) : null;
-  const banco = criarBanco(cfg);
-  if (banco) console.log('[banco] Supabase ligado: pesquisas e acesso ao painel ficam no banco');
+  // Banco mal configurado não derruba o site: segue com arquivos e o painel mostra o erro
+  let banco = null, bancoErro = null;
+  try { banco = criarBanco(cfg); } catch (e) { bancoErro = e.message; console.error(`[banco] desligado: ${e.message}`); }
+  if (banco) console.log(`[banco] Supabase ligado (${banco.url}): pesquisas e acesso ao painel ficam no banco`);
   const pesquisas = new Pesquisas(cfg.dataDir, { banco });
   await pesquisas.carregar();
   const auto = noticias && cfg.pesquisasTse?.url && process.env.PESQUISAS_AUTO !== '0' ? criarAutomacao({ cfg, noticias, pesquisas, e26 }) : null;
-  const server = createApp(cfg, collector, noticias, { pesquisas, cadastro: auto?.cadastro, banco });
+  const server = createApp(cfg, collector, noticias, { pesquisas, cadastro: auto?.cadastro, banco, bancoErro });
   if (cfg.adminToken || cfg.adminLogin) console.log(`[admin] painel em /admin.html (${cfg.adminLogin ? 'entrar com usuário e senha' : 'primeiro acesso: crie usuário e senha com o código de instalação ADMIN_TOKEN'})`);
   await new Promise((r) => server.listen(cfg.port, cfg.host, r));
   console.log(`[servidor] http://localhost:${cfg.port}  (fonte: ${cfg.base}/${cfg.ambiente}, polling ${cfg.pollIntervalMs / 1000}s, máx ${cfg.maxRps} req/s)`);

@@ -73,9 +73,27 @@ export class BancoSupabase {
   estado() { return { ok: !this.ultimoErro, ultimoOk: this.ultimoOk, erro: this.ultimoErro }; }
 }
 
-/** Banco a partir da configuração, ou null (sem banco: tudo em arquivo). */
+const semAspas = (s) => String(s || '').trim().replace(/^["'<]+|[">']+$/g, '').trim();
+
+/**
+ * Endereço do projeto a partir do que foi colado na variável. Aceita os enganos comuns: o endereço
+ * da API com /rest/v1, aspas ou espaços em volta e o link do painel do Supabase
+ * (supabase.com/dashboard/project/<id>). Devolve https://<id>.supabase.co, ou null se não der.
+ */
+export function urlDoProjeto(valor) {
+  const s = semAspas(valor);
+  const painel = s.match(/supabase\.com\/dashboard\/project\/([a-z0-9]{10,40})\b/i);
+  if (painel) return `https://${painel[1].toLowerCase()}.supabase.co`;
+  let u;
+  try { u = new URL(/^[a-z]+:\/\//i.test(s) ? s : `https://${s}`); } catch { return null; }
+  if (u.protocol !== 'https:' || !/^[a-z0-9.-]+$/i.test(u.hostname) || !u.hostname.includes('.')) return null;
+  return `https://${u.host}`;
+}
+
+/** Banco a partir da configuração, ou null (sem banco: tudo em arquivo). Lança erro se a URL não serve. */
 export function criarBanco(cfg, opcoes = {}) {
   if (!cfg.supabaseUrl || !cfg.supabaseChave) return null;
-  if (!/^https:\/\/[a-z0-9.-]+$/i.test(String(cfg.supabaseUrl).replace(/\/+$/, ''))) throw new Error('SUPABASE_URL deve ser https://<projeto>.supabase.co');
-  return new BancoSupabase({ url: cfg.supabaseUrl, chave: cfg.supabaseChave, ...opcoes });
+  const url = urlDoProjeto(cfg.supabaseUrl);
+  if (!url) throw new Error('SUPABASE_URL deve ser https://<projeto>.supabase.co (Project Settings > Data API, "Project URL")');
+  return new BancoSupabase({ url, chave: semAspas(cfg.supabaseChave), ...opcoes });
 }
