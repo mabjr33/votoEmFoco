@@ -12,6 +12,7 @@
     "baixar": "node scripts/baixar-tse.mjs",
     "mock": "node src/mock/run-mock.js",
     "mock:ficticio": "node src/mock/run-mock.js --ficticio",
+    "banco": "node scripts/verificar-banco.mjs",
     "test": "node --test test/*.test.js"
   },
   "license": "MIT"

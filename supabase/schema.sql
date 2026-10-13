@@ -40,3 +40,7 @@ create table if not exists painel_acesso (
 alter table pesquisas enable row level security;
 alter table pesquisas_ignoradas enable row level security;
 alter table painel_acesso enable row level security;
+
+-- Só o servidor (service_role / chave secreta) usa as tabelas; o público não tem acesso
+grant select, insert, update, delete on pesquisas, pesquisas_ignoradas, painel_acesso to service_role;
+revoke all on pesquisas, pesquisas_ignoradas, painel_acesso from anon, authenticated;

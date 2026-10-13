@@ -24,7 +24,9 @@ export class BancoSupabase {
   }
 
   async req(metodo, caminho, corpo, prefer) {
-    const headers = { apikey: this.chave, Authorization: `Bearer ${this.chave}`, Accept: 'application/json' };
+    const headers = { apikey: this.chave, Accept: 'application/json' };
+    // Chave antiga (service_role) é um JWT e vai também no Authorization; a nova (sb_secret_...) só no apikey
+    if (!this.chave.startsWith('sb_')) headers.Authorization = `Bearer ${this.chave}`;
     if (corpo !== undefined) headers['Content-Type'] = 'application/json';
     if (prefer) headers.Prefer = prefer;
     const ctrl = new AbortController();

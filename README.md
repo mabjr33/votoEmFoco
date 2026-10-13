@@ -219,8 +219,9 @@ Opcional, mas recomendado no Render gratuito (que apaga o disco a cada reinício
 
 1. Crie um projeto em [supabase.com](https://supabase.com) (plano gratuito; região São Paulo).
 2. Em **SQL Editor**, cole e rode o conteúdo de [`supabase/schema.sql`](supabase/schema.sql). Ele cria 3 tabelas com regras (registro BR-12345/2026, percentuais entre 0 e 100, só hash scrypt) e liga o RLS sem nenhuma política: a chave pública do Supabase não lê nem grava nada.
-3. Em **Project Settings > API**, copie a **Project URL** e a chave **service_role**.
-4. No Render, em Environment: `SUPABASE_URL` = a URL e `SUPABASE_SERVICE_KEY` = a chave service_role. A chave fica só no servidor; nunca vai para o navegador nem para o repositório.
+3. Copie a **Project URL** (Project Settings > Data API, ou o botão Connect) e uma chave **secreta**: em Project Settings > API Keys, a **secret** (`sb_secret_...`) ou, na aba Legacy, a **service_role**. Nunca a publishable/anon.
+4. No Render, em Environment: `SUPABASE_URL` = a URL e `SUPABASE_SERVICE_KEY` = a chave secreta. A chave fica só no servidor; nunca vai para o navegador nem para o repositório.
+5. Para conferir no seu computador antes: `SUPABASE_URL=... SUPABASE_SERVICE_KEY=... npm run banco` (só lê). No ar, o painel mostra o cartão "Banco de dados".
 
 Na primeira partida com o banco vazio, o servidor leva para ele o que já tinha (`data/pesquisas.json`, `data/admin-acesso.json` ou `ADMIN_LOGIN`). Depois, o banco é a fonte e o arquivo fica de reserva: se o banco cair, o site continua com o arquivo e o painel mostra o erro; quando ele volta, o servidor junta os dois antes de gravar, sem apagar nada. Sem as duas variáveis, tudo funciona como antes, só com arquivos.
 

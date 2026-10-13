@@ -20,7 +20,7 @@ services:
       - key: ADMIN_LOGIN
         sync: false
       # Banco de dados (Supabase, opcional): pesquisas e acesso ao painel sobrevivem aos reinícios.
-      # Supabase > Project Settings > API: "Project URL" e a chave "service_role" (secreta).
+      # Supabase: "Project URL" e a chave secreta (API Keys > secret, sb_secret_...; ou a legacy service_role).
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY

@@ -8,7 +8,8 @@ import { BancoSupabase, criarBanco } from '../src/banco.js';
 import { Pesquisas } from '../src/pesquisas.js';
 import { Acesso, gerarHash } from '../src/acesso.js';
 
-const CHAVE = 'chave-servico-de-teste';
+const CHAVE = 'eyJ.chave-service-role-de-teste';
+const SECRETA = 'sb_secret_chave-nova-de-teste';
 const silencioso = { warn() {}, info() {}, error() {} };
 
 /** PostgREST mínimo: tabelas em memória, só o que src/banco.js usa. */
@@ -20,7 +21,8 @@ function supabaseFalso({ fora = false } = {}) {
     pedidos.push({ method, url, headers });
     const resp = (status, obj) => ({ ok: status < 300, status, text: async () => (obj === undefined ? '' : JSON.stringify(obj)) });
     if (fora) throw new Error('fetch failed');
-    if (headers.apikey !== CHAVE || headers.Authorization !== `Bearer ${CHAVE}`) return resp(401, { message: 'sem chave' });
+    const chaveNova = headers.apikey === SECRETA && !headers.Authorization;
+    if (!chaveNova && (headers.apikey !== CHAVE || headers.Authorization !== `Bearer ${CHAVE}`)) return resp(401, { message: 'sem chave' });
     const u = new URL(url);
     const nome = u.pathname.replace('/rest/v1/', '');
     const t = tabelas[nome];
@@ -83,6 +85,14 @@ test('grava e lê pesquisas, converte nomes de coluna e remove o que saiu', asyn
   assert.deepEqual(lido.itens.map((p) => p.registro), ['BR-05678/2026']);
   assert.deepEqual(lido.ignoradas, []);
   assert.equal(banco.estado().ok, true);
+});
+
+test('chave secreta nova (sb_secret_) vai só no apikey, sem Authorization', async () => {
+  const falso = supabaseFalso();
+  const banco = new BancoSupabase({ url: 'https://projeto.supabase.co', chave: SECRETA, fetch: falso.fetch });
+  await banco.gravarAcesso({ usuario: 'dono.site', hash: 'scrypt$1$2$3$a$b' });
+  assert.deepEqual(await banco.lerAcesso(), { usuario: 'dono.site', hash: 'scrypt$1$2$3$a$b' });
+  assert.ok(falso.pedidos.every((p) => p.headers.apikey === SECRETA && !p.headers.Authorization));
 });
 
 test('erro do banco fica no estado (para a saúde do painel)', async () => {
