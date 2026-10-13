@@ -4,7 +4,7 @@
 import { gruposDoPrimeiroTurno, cenarioSimples, controlesDeTransferencia } from '/shared/simples.js';
 import { modeloTransferencia } from '/shared/previsao.js';
 import { suggestedFlow } from '/shared/presets.js';
-import { ELEICOES } from '/shared/historico.js';
+import { ELEICOES, TRANSFERENCIAS_2026 } from '/shared/historico.js';
 import { esc, fmtPct, fmtInt, curto, deQtd, avatar } from './util.js';
 import { corPartido } from './partidos.js';
 
@@ -13,6 +13,7 @@ const ler = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch {
 const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* sem storage */ } };
 const primeiro = (nome) => String(nome || '').split(' ')[0];
 const qtd = (n) => `${curto(n)}${deQtd(n)}`;
+const semTitulo = (nome) => String(nome || '').replace(/^(ESCRITORA?|PROFESSORA?|DOUTORA?|PASTORA?)\s+/i, '');
 
 /** Leituras de transferência como frações dos votos dos demais (presidente: pesquisas + perfil). */
 function leiturasPresidente() {
@@ -41,17 +42,60 @@ function predefinicoes(r, A, B) {
   const p = leituraPerfil(r.baseline.summary, A, B);
   return [['perfil', 'Perfil dos partidos', p], ['meio', 'Meio a meio', meio(p)]];
 }
-function padrao(r, A, B) {
-  const [, , base] = predefinicoes(r, A, B)[0];
-  return { repeteA: 1, repeteB: 1, ...controlesDeTransferencia(base), ninguemVota: 0, ninguemParaA: 0.5, pre: predefinicoes(r, A, B)[0][0] };
+/**
+ * Controles de cada eliminado para uma predefinição. Ipespe: a pesquisa traz o voto dos eleitores de
+ * alguns eliminados separadamente; os outros seguem a leitura geral. Perfil: cada um pelo seu partido.
+ * As demais predefinições valem igual para todos.
+ */
+function porCandidatoDoPreset(pre, r, A, B, base) {
+  const g = gruposDoPrimeiroTurno(r.baseline.summary, A.n, B.n);
+  const e26 = ELEICOES.find((x) => x.ano === 2026);
+  const aEhLider = A.partido === e26.lider.partido;
+  const ipespe = r.cargo === 1 && pre === 'ipespe' ? TRANSFERENCIAS_2026.find((t) => t.id === 'ipespe')?.porCandidato : null;
+  return Object.fromEntries(g.separados.map((c) => {
+    let f = base;
+    const ip = ipespe?.[c.n];
+    if (ip) f = aEhLider ? { paraA: ip.flavio, paraB: ip.lula } : { paraA: ip.lula, paraB: ip.flavio };
+    else if (pre === 'perfil') { const s = suggestedFlow(c.partido, A.partido, B.partido); f = { paraA: s.A, paraB: s.B }; }
+    const t = controlesDeTransferencia(f);
+    return [c.n, { escolhem: t.demaisEscolhem, paraA: t.demaisParaA }];
+  }));
 }
-const opcoes = (r, A, B) => (E.estado[r.id] ||= ler(`facil:${r.id}`) || padrao(r, A, B));
+function aplicarPreset(o, pre, r, A, B) {
+  const lista = predefinicoes(r, A, B);
+  const v = lista.find(([k]) => k === pre) || lista[0];
+  Object.assign(o, controlesDeTransferencia(v[2]), { pre: v[0], porCandidato: porCandidatoDoPreset(v[0], r, A, B, v[2]) });
+}
+function padrao(r, A, B) {
+  const o = { repeteA: 1, repeteB: 1, ninguemVota: 0, ninguemParaA: 0.5, separado: false };
+  aplicarPreset(o, predefinicoes(r, A, B)[0][0], r, A, B);
+  return o;
+}
+const opcoes = (r, A, B) => {
+  const o = (E.estado[r.id] ||= ler(`facil:${r.id}`) || padrao(r, A, B));
+  // Cenário guardado antes do modo "um por um": cada eliminado começa igual ao controle geral
+  o.porCandidato ||= porCandidatoDoPreset(null, r, A, B, { paraA: o.demaisEscolhem * o.demaisParaA, paraB: o.demaisEscolhem * (1 - o.demaisParaA) });
+  return o;
+};
 
 function controle(id, rotulo, valor, { min = 0, max = 100, dividir = null } = {}) {
   const v = Math.round(valor * 100);
   const saida = dividir ? `${esc(primeiro(dividir[0]))} ${v}% · ${esc(primeiro(dividir[1]))} ${100 - v}%` : `${v}%`;
   return `<label class="sf-controle" for="${id}"><span>${esc(rotulo)}</span><output id="${id}-out">${saida}</output></label>
     <input type="range" id="${id}" min="${min}" max="${max}" step="1" value="${v}" ${dividir ? 'class="dividir"' : ''} style="--p:${((v - min) / (max - min)) * 100}%">`;
+}
+
+/** Modo "um por um": controles de cada eliminado; os menores juntos em "os outros". */
+function blocoUmPorUm(g, o, A, B, s1) {
+  const resto = Math.max(0, g.demais - g.separados.reduce((s, c) => s + c.votos, 0));
+  const nResto = s1.cands.filter((c) => c.n !== A.n && c.n !== B.n && c.vap > 0).length - g.separados.length;
+  const caixa = (titulo, sub, corpo) => `<div class="sf-cand"><div class="sf-cand-cab"><b>${titulo}</b><span>${sub}</span></div>${corpo}</div>`;
+  return g.separados.map((c) => {
+    const p = o.porCandidato?.[c.n] || { escolhem: o.demaisEscolhem, paraA: o.demaisParaA };
+    return caixa(`Eleitores de ${esc(semTitulo(c.nome))}`, `${qtd(c.votos)} votos · ${fmtPct(c.pct, 1)}%`,
+      controle(`sf-c-${c.n}-escolhem`, 'Escolhem um dos dois', p.escolhem) + controle(`sf-c-${c.n}-paraA`, 'Desses, vão para', p.paraA, { dividir: [A.nmu, B.nmu] }));
+  }).join('') + (resto >= 1 && nResto > 0 ? caixa(`Eleitores dos outros ${nResto === 1 ? 'candidato' : `${fmtInt(nResto)} candidatos`}`, `${qtd(resto)} votos`,
+    controle('sf-demaisEscolhem', 'Escolhem um dos dois', o.demaisEscolhem) + controle('sf-demaisParaA', 'Desses, vão para', o.demaisParaA, { dividir: [A.nmu, B.nmu] })) : '');
 }
 
 /** Desenha a tela inteira (ao abrir ou trocar de disputa). */
@@ -74,9 +118,12 @@ export function renderSimuladorFacil(ctx) {
     ${grupo(`Quem votou em ${esc(A.nmu)}`, `${qtd(g.a)} votos no 1º turno`, controle('sf-repeteA', 'Votam nele de novo', o.repeteA, { min: 70 }) + '<p class="nota">Os outros não votam em ninguém.</p>')}
     ${grupo(`Quem votou em ${esc(B.nmu)}`, `${qtd(g.b)} votos no 1º turno`, controle('sf-repeteB', 'Votam nele de novo', o.repeteB, { min: 70 }) + '<p class="nota">Os outros não votam em ninguém.</p>')}
     ${grupo('Quem votou nos outros candidatos', `${qtd(g.demais)} votos${elim.length ? ` (${esc(elim.join(', '))}${s1.cands.length > elim.length + 2 ? ' e outros' : ''})` : ''}`,
-      `<div class="sf-pre" role="group" aria-label="Começar de">${pres.map(([k, t]) => `<button type="button" class="chip" data-sf-pre="${k}" aria-pressed="${o.pre === k}">${esc(t)}</button>`).join('')}</div>
-      ${controle('sf-demaisEscolhem', 'Escolhem um dos dois', o.demaisEscolhem)}
-      ${controle('sf-demaisParaA', 'Desses, vão para', o.demaisParaA, { dividir: [A.nmu, B.nmu] })}`)}
+      `${g.separados.length > 1 ? `<div class="sf-modo" role="group" aria-label="Como simular">
+          <button type="button" data-sf-modo="juntos" aria-pressed="${!o.separado}">Todos juntos</button>
+          <button type="button" data-sf-modo="separado" aria-pressed="${!!o.separado}">Um por um</button></div>` : ''}
+      <div class="sf-pre" role="group" aria-label="Começar de">${pres.map(([k, t]) => `<button type="button" class="chip" data-sf-pre="${k}" aria-pressed="${o.pre === k}">${esc(t)}</button>`).join('')}</div>
+      ${o.separado && g.separados.length > 1 ? blocoUmPorUm(g, o, A, B, s1) : `${controle('sf-demaisEscolhem', 'Escolhem um dos dois', o.demaisEscolhem)}
+      ${controle('sf-demaisParaA', 'Desses, vão para', o.demaisParaA, { dividir: [A.nmu, B.nmu] })}`}`)}
     ${grupo('Quem não votou ou anulou no 1º turno', `${qtd(g.ninguem)} eleitores (abstenção, brancos e nulos)`,
       controle('sf-ninguemVota', 'Votam agora num dos dois', o.ninguemVota, { max: 30 }) + controle('sf-ninguemParaA', 'Desses, vão para', o.ninguemParaA, { dividir: [A.nmu, B.nmu] }))}
     <div class="acoes"><button type="button" class="botao-2" id="sf-reset">Recomeçar</button>
@@ -95,8 +142,13 @@ function atualizar() {
   const [ca, cb] = r.cargo === 1 ? ['var(--a)', 'var(--b)'] : cores(A, B);
   const fotoA = { ...A, sq: A.sq || s1.cands.find((x) => x.n === A.n)?.sq }, fotoB = { ...B, sq: B.sq || s1.cands.find((x) => x.n === B.n)?.sq };
   const venc = c.vencedor === 'A' ? A : c.vencedor === 'B' ? B : null;
-  const origem = (de, cor) => `<div class="sf-origem"><span class="sf-o-rot">do 1º turno</span><b>${qtd(de.primeiro)}</b></div>
-    <div class="sf-origem"><span class="sf-o-rot">dos outros candidatos</span><b>${qtd(de.demais)}</b></div>
+  const linha = (rot, v) => `<div class="sf-origem"><span class="sf-o-rot">${rot}</span><b>${curto(v)}</b></div>`;
+  const linhasDemais = (lado) => (c.porCandidato
+    ? c.porCandidato.map((x) => linha(`de quem votou em ${esc(semTitulo(x.nome))}`, lado === 'A' ? x.paraA : x.paraB)).join('')
+      + (c.resto?.votos >= 1 ? linha('dos outros candidatos', lado === 'A' ? c.resto.paraA : c.resto.paraB) : '')
+    : linha('dos outros candidatos', lado === 'A' ? c.deA.demais : c.deB.demais));
+  const origem = (de, lado) => `${linha('do 1º turno', de.primeiro)}
+    ${linhasDemais(lado)}
     <div class="sf-origem"><span class="sf-o-rot">de quem não votou</span><b>${qtd(de.ninguem)}</b></div>`;
   const aberto = resumoEl.querySelector('.sf-de-onde')?.open;
   resumoEl.innerHTML = `<p class="rot">No seu cenário</p>
@@ -108,7 +160,7 @@ function atualizar() {
     <p class="veredito">${venc ? `${esc(venc.nmu)} é eleito` : 'Empate'}</p>
     <p class="nota">${venc ? `Diferença de ${qtd(Math.abs(c.margem))} votos, em ${qtd(c.validos)} votos válidos.` : 'Os dois com o mesmo número de votos.'}</p>
     <details class="dobra sf-de-onde"><summary><span class="dobra-t">De onde vêm os votos</span><span class="dobra-r">em cada grupo de eleitores</span></summary><div class="dobra-corpo">
-      <h3 style="color:${ca}">${esc(A.nmu)}</h3>${origem(c.deA)}<h3 style="color:${cb}">${esc(B.nmu)}</h3>${origem(c.deB)}</div></details>
+      <h3 style="color:${ca}">${esc(A.nmu)}</h3>${origem(c.deA, 'A')}<h3 style="color:${cb}">${esc(B.nmu)}</h3>${origem(c.deB, 'B')}</div></details>
     <p class="nota sf-aviso">Simulação com os seus números: não é previsão nem pesquisa.</p>`;
   if (aberto) resumoEl.querySelector('.sf-de-onde').open = true;
   // Celular: o resultado fica lá embaixo; esta barra fixa no topo mostra o número mudando
@@ -124,8 +176,10 @@ export function ligarSimuladorFacil(raiz, { ativo, ir }) {
     if (!ativo() || !e.target.id?.startsWith('sf-') || e.target.type !== 'range') return;
     const { r } = E.ctx, [A, B] = E.ctx.fins(r), o = opcoes(r, A, B);
     const t = e.target, chave = t.id.slice(3), v = Number(t.value) / 100;
-    o[chave] = v;
-    if (chave.startsWith('demais')) { o.pre = null; for (const b of raiz.querySelectorAll('[data-sf-pre]')) b.setAttribute('aria-pressed', 'false'); }
+    const cand = chave.match(/^c-(\d+)-(escolhem|paraA)$/);
+    if (cand) (o.porCandidato[cand[1]] ||= { escolhem: o.demaisEscolhem, paraA: o.demaisParaA })[cand[2]] = v;
+    else o[chave] = v;
+    if (chave.startsWith('demais') || cand) { o.pre = null; for (const b of raiz.querySelectorAll('[data-sf-pre]')) b.setAttribute('aria-pressed', 'false'); }
     t.style.setProperty('--p', `${((Number(t.value) - Number(t.min)) / (Number(t.max) - Number(t.min))) * 100}%`);
     const out = document.getElementById(`${t.id}-out`);
     if (out) out.textContent = t.classList.contains('dividir') ? `${primeiro(A.nmu)} ${t.value}% · ${primeiro(B.nmu)} ${100 - Number(t.value)}%` : `${t.value}%`;
@@ -137,8 +191,12 @@ export function ligarSimuladorFacil(raiz, { ativo, ir }) {
     const { r } = E.ctx, [A, B] = E.ctx.fins(r);
     const pre = e.target.closest('[data-sf-pre]');
     if (pre) {
-      const v = predefinicoes(r, A, B).find(([k]) => k === pre.dataset.sfPre);
-      Object.assign(opcoes(r, A, B), controlesDeTransferencia(v[2]), { pre: v[0] });
+      aplicarPreset(opcoes(r, A, B), pre.dataset.sfPre, r, A, B);
+      guardar(); return renderSimuladorFacil(E.ctx);
+    }
+    const modo = e.target.closest('[data-sf-modo]');
+    if (modo) {
+      opcoes(r, A, B).separado = modo.dataset.sfModo === 'separado';
       guardar(); return renderSimuladorFacil(E.ctx);
     }
     if (e.target.id === 'sf-reset') { E.estado[r.id] = padrao(r, A, B); guardar(); renderSimuladorFacil(E.ctx); }

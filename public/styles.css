@@ -641,6 +641,13 @@ body.modo-telao.ocioso .telao-acoes { opacity: 0; }
 .sf-grupo input[type=range].dividir::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: var(--sup); border: 2px solid var(--tinta); cursor: pointer; }
 .sf-grupo .nota { margin: 4px 0 0; }
 .sf-pre { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--e1); }
+.sf-modo { display: inline-flex; border: 1px solid var(--linha); border-radius: 999px; padding: 3px; margin-bottom: var(--e2); background: var(--suave); }
+.sf-modo button { border: 0; background: none; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer; color: var(--tinta-2); }
+.sf-modo button[aria-pressed="true"] { background: var(--sup); color: var(--tinta); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 12%); }
+.sf-cand { border: 1px solid var(--linha); border-radius: 12px; padding: 4px 14px 10px; margin-top: var(--e1); background: var(--sup); }
+.sf-cand-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-top: 10px; flex-wrap: wrap; }
+.sf-cand-cab span { color: var(--tinta-2); font-size: 13px; }
+.sf-cand .sf-controle { margin-top: var(--e1); }
 .sf-pre .chip[aria-pressed="true"] { background: var(--tinta); color: var(--sup); border-color: var(--tinta); }
 .sf-duelo { display: flex; justify-content: space-between; gap: 12px; margin: var(--e2) 0 var(--e1); }
 .sf-lado { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -651,7 +658,7 @@ body.modo-telao.ocioso .telao-acoes { opacity: 0; }
 .sf-de-onde { margin-top: var(--e2); }
 .sf-de-onde h3 { font-size: 14px; margin: var(--e2) 0 4px; }
 .sf-origem { display: flex; justify-content: space-between; font-size: 14px; padding: 3px 0; color: var(--tinta-2); }
-.sf-origem b { color: var(--tinta); font-weight: 600; }
+.sf-origem b { color: var(--tinta); font-weight: 600; white-space: nowrap; }
 .sf-aviso { margin-top: var(--e2); }
 .voltar-simples { margin: 0 0 var(--e1); font-size: 14px; }
 .sf-fixo { display: none; }
