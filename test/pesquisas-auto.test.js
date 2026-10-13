@@ -130,6 +130,7 @@ test('cadastro: lê o zip do TSE e guarda só presidenciais nacionais com campo 
   // A lista pública de próximas pesquisas só tem as nacionais
   assert.deepEqual(r.proximas('2026-10-16').map((p) => p.registro), ['BR-01111/2026']);
   assert.equal(nomeInstituto('#NULO#', 'INSTITUTO VOX BRASIL OPINIAO E PESQUISAS LTDA'), 'Vox Brasil');
+  assert.equal(nomeInstituto('Grupo Gerp Gerp Mercado Gerp Opiniao Gerpaudit', 'GERP MERCADO E OPINIAO LTDA'), 'Gerp');
 });
 
 test('cadastro: consulta condicional (só baixa quando muda) e guarda em disco', async () => {

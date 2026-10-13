@@ -13,7 +13,7 @@ import { lerLimitado } from '../noticias/coletor.js';
 
 const MAX_ZIP = 40 * 1024 * 1024;
 // Suba quando os campos guardados mudarem: o arquivo antigo é descartado e o cadastro é baixado de novo
-const FORMATO = 2;
+const FORMATO = 3;
 const MAX_CSV = 80 * 1024 * 1024;
 
 /** Lê um arquivo de dentro de um .zip (sem dependências). filtro: (nome) => boolean. */
@@ -66,7 +66,7 @@ const MARCAS = [
   [/DATAFOLHA/, 'Datafolha'], [/ATLAS ?INTEL/, 'AtlasIntel'], [/PODER ?DATA/, 'PoderData'], [/QUAEST/, 'Quaest'],
   [/\bIPEC\b/, 'Ipec'], [/VOX BRASIL/, 'Vox Brasil'], [/VOX POPULI/, 'Vox Populi'], [/PARANA PESQUISAS/, 'Paraná Pesquisas'],
   [/REAL TIME BIG DATA/, 'Real Time Big Data'], [/\bMDA\b/, 'MDA'], [/PALVER/, 'Palver'], [/NEXUS/, 'Nexus'], [/IPESPE/, 'Ipespe'],
-  [/FUTURA/, 'Futura'], [/\bIDEIA\b/, 'Ideia'], [/DATA ?TRENDS/, 'DataTrends'],
+  [/FUTURA/, 'Futura'], [/\bIDEIA\b/, 'Ideia'], [/DATA ?TRENDS/, 'DataTrends'], [/\bGERP\b/, 'Gerp'],
 ];
 const semAcento = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 const MINUSCULAS = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
