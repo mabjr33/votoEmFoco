@@ -23,7 +23,8 @@ export class BancoSupabase {
     this.ultimoOk = null;
   }
 
-  async req(metodo, caminho, corpo, prefer) {
+  /** opcional: falha não mexe no estado de saúde do banco (ex.: tabela de visitas, que é acessória). */
+  async req(metodo, caminho, corpo, prefer, { opcional = false } = {}) {
     const headers = { apikey: this.chave, Accept: 'application/json' };
     // Chave antiga (service_role) é um JWT e vai também no Authorization; a nova (sb_secret_...) só no apikey
     if (!this.chave.startsWith('sb_')) headers.Authorization = `Bearer ${this.chave}`;
@@ -35,10 +36,10 @@ export class BancoSupabase {
       const r = await this.fetch(`${this.url}/rest/v1/${caminho}`, { method: metodo, headers, body: corpo === undefined ? undefined : JSON.stringify(corpo), signal: ctrl.signal });
       const texto = await r.text();
       if (!r.ok) throw new Error(`banco ${metodo} ${caminho.split('?')[0]}: HTTP ${r.status} ${texto.slice(0, 160)}`);
-      this.ultimoOk = Date.now(); this.ultimoErro = null;
+      if (!opcional) { this.ultimoOk = Date.now(); this.ultimoErro = null; }
       return texto ? JSON.parse(texto) : null;
     } catch (e) {
-      this.ultimoErro = e.name === 'AbortError' ? 'banco: tempo esgotado' : e.message;
+      if (!opcional) this.ultimoErro = e.name === 'AbortError' ? 'banco: tempo esgotado' : e.message;
       throw e;
     } finally { clearTimeout(t); }
   }
@@ -70,16 +71,16 @@ export class BancoSupabase {
     await this.req('POST', 'painel_acesso?on_conflict=id', [{ id: 1, usuario, hash, atualizado_em: new Date().toISOString() }], 'resolution=merge-duplicates,return=minimal');
   }
 
-  /** Totais por dia dos últimos `dias` dias: [{ dia, visitantes, paginas }]. */
+  /** Totais por dia dos últimos `dias` dias: [{ dia, visitantes, paginas }]. Acessório: não afeta a saúde do banco. */
   async lerVisitas(dias = 90) {
     const desde = new Date(Date.now() - dias * 86_400_000).toISOString().slice(0, 10);
-    const linhas = await this.req('GET', `visitas_diarias?select=dia,visitantes,paginas&dia=gte.${desde}&order=dia.asc`);
+    const linhas = await this.req('GET', `visitas_diarias?select=dia,visitantes,paginas&dia=gte.${desde}&order=dia.asc`, undefined, undefined, { opcional: true });
     return linhas.map((l) => ({ dia: l.dia, visitantes: Number(l.visitantes), paginas: Number(l.paginas) }));
   }
 
   async gravarVisitas(linhas) {
     if (!linhas.length) return;
-    await this.req('POST', 'visitas_diarias?on_conflict=dia', linhas.map(({ dia, visitantes, paginas }) => ({ dia, visitantes, paginas })), 'resolution=merge-duplicates,return=minimal');
+    await this.req('POST', 'visitas_diarias?on_conflict=dia', linhas.map(({ dia, visitantes, paginas }) => ({ dia, visitantes, paginas })), 'resolution=merge-duplicates,return=minimal', { opcional: true });
   }
 
   estado() { return { ok: !this.ultimoErro, ultimoOk: this.ultimoOk, erro: this.ultimoErro }; }
