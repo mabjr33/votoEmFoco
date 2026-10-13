@@ -96,3 +96,13 @@ test('login: muitas conferências de senha ao mesmo tempo recebem "ocupado" em v
   assert.ok(r.filter((x) => x.status === 'fulfilled').length >= 2);
   assert.equal(await conferirHash('uma frase de teste 42', hash), true, 'depois da enxurrada, volta ao normal');
 });
+
+test('acesso: corpo não-objeto (null, lista, número) não derruba — devolve erro limpo', async () => {
+  const { Acesso } = await import('../src/acesso.js');
+  const a = new Acesso({ codigoInstalacao: 'codigo-de-instalacao-de-teste-1' });
+  for (const corpo of [null, undefined, 42, 'texto', []]) {
+    assert.equal((await a.entrar(corpo)).status, 401, `entrar(${JSON.stringify(corpo)})`);
+    assert.equal((await a.definir(corpo)).status, 401, `definir(${JSON.stringify(corpo)})`);
+    assert.equal((await a.trocarSenha('sessao-inexistente', corpo)).status, 401, `trocarSenha(${JSON.stringify(corpo)})`);
+  }
+})

@@ -124,7 +124,8 @@ export class Acesso {
   }
 
   /** Cria a conta (ou redefine, se esquecida). Exige o código de instalação. */
-  async definir({ codigo, usuario, senha }) {
+  async definir(corpo) {
+    const { codigo, usuario, senha } = corpo || {};
     if (!this.codigoConfere(codigo)) return { erro: 'Código de instalação inválido.', status: 401 };
     const erro = validarCredenciais(usuario, senha);
     if (erro) return { erro, status: 422 };
@@ -134,7 +135,8 @@ export class Acesso {
     return { sessao: this.abrirSessao(this.conta.usuario), linhaVariavel: this.linhaVariavel(), noBanco: this.conta.origem === 'banco' };
   }
 
-  async entrar({ usuario, senha }) {
+  async entrar(corpo) {
+    const { usuario, senha } = corpo || {};
     if (typeof senha !== 'string' || senha.length > 200) return { erro: 'Usuário ou senha incorretos.', status: 401 };
     const u = String(usuario || '').trim().toLowerCase();
     const certo = this.conta && u === this.conta.usuario;
@@ -143,7 +145,8 @@ export class Acesso {
     return certo && ok ? { sessao: this.abrirSessao(u) } : { erro: 'Usuário ou senha incorretos.', status: 401 };
   }
 
-  async trocarSenha(sessao, { senhaAtual, novaSenha }) {
+  async trocarSenha(sessao, corpo) {
+    const { senhaAtual, novaSenha } = corpo || {};
     const s = this.sessao(sessao);
     if (!s) return { erro: 'Sessão expirada.', status: 401 };
     if (!(await conferirHash(senhaAtual, this.conta.hash))) return { erro: 'Senha atual incorreta.', status: 401 };

@@ -44,7 +44,9 @@ export function criarAdmin({ token, acesso = null, loginEnv = null, dataDir = nu
     return new Promise((resolve, reject) => {
       const partes = []; let total = 0;
       req.on('data', (d) => { total += d.length; if (total > MAX_CORPO) { reject(new Error('grande')); req.destroy(); } else partes.push(d); });
-      req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(partes).toString('utf8') || '{}')); } catch { reject(new Error('json')); } });
+      // Coage para objeto: JSON válido mas não-objeto (null, número, lista, texto) vira {}, para
+      // quem recebe o corpo poder desestruturar sem erro (null.usuario quebraria com 500)
+      req.on('end', () => { try { const v = JSON.parse(Buffer.concat(partes).toString('utf8') || '{}'); resolve(v && typeof v === 'object' && !Array.isArray(v) ? v : {}); } catch { reject(new Error('json')); } });
       req.on('error', reject);
     });
   }
